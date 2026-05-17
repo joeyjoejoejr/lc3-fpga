@@ -1,0 +1,29 @@
+# Icarus / simulation outputs
+sim/build/
+sim/*.vcd
+*.vvp
+*.fst
+*.lxt
+
+# FPGA build outputs
+build/
+impl/
+pnr/
+*.fs
+*.bit
+*.jed
+*.svf
+*.tcl.log
+
+# Logs and reports
+*.log
+*.rpt
+*.json
+
+# OS/editor files
+.DS_Store
+*~
+*.swp
+*.swo
+.vscode/
+.idea/
