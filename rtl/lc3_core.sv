@@ -16,9 +16,7 @@ module lc3_core (
     STATE_FETCH,
     STATE_LATCH_IR,
     STATE_DECODE,
-    STATE_EXEC_ADD,
-    STATE_EXEC_AND,
-    STATE_EXEC_NOT,
+    STATE_EXEC_ALU,
     STATE_EXEC_BR,
     STATE_EXEC_LEA,
     STATE_HALT
@@ -58,6 +56,8 @@ module lc3_core (
   logic [15:0] and_result;
 
   logic [15:0] not_result;
+  logic [15:0] alu_result;
+
   logic [15:0] lea_result;
 
   assign opcode = ir[15:12];
@@ -81,6 +81,11 @@ module lc3_core (
 
   // NOT
   assign not_result = ~regs[sr1];
+
+  assign alu_result = opcode == OP_ADD ?
+    add_result : (opcode == OP_AND) ?
+    and_result : (opcode == OP_NOT) ?
+    not_result : 15'hxxxx;
 
   // LEA
   assign lea_result = pc + pc_offset9;
@@ -122,9 +127,7 @@ module lc3_core (
         STATE_DECODE: begin
           case (opcode)
             OP_BR: state <= STATE_EXEC_BR;
-            OP_ADD: state <= STATE_EXEC_ADD;
-            OP_AND: state <= STATE_EXEC_AND;
-            OP_NOT: state <= STATE_EXEC_NOT;
+            OP_ADD, OP_AND, OP_NOT: state <= STATE_EXEC_ALU;
             OP_LEA: state <= STATE_EXEC_LEA;
             default: state <= STATE_HALT;
           endcase
@@ -135,21 +138,9 @@ module lc3_core (
           state <= STATE_FETCH;
         end
 
-        STATE_EXEC_ADD: begin
-          { n, z, p } <= flags_for(add_result);
-          regs[dr] <= add_result;
-          state <= STATE_FETCH;
-        end
-
-        STATE_EXEC_AND: begin
-          { n, z, p } <= flags_for(and_result);
-          regs[dr] <= and_result;
-          state <= STATE_FETCH;
-        end
-
-        STATE_EXEC_NOT: begin
-          { n, z, p } <= flags_for(not_result);
-          regs[dr] <= not_result;
+        STATE_EXEC_ALU: begin
+          { n, z, p } <= flags_for(alu_result);
+          regs[dr] <= alu_result;
           state <= STATE_FETCH;
         end
 
