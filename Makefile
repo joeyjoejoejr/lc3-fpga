@@ -1,5 +1,6 @@
 IVERILOG ?= iverilog
 VVP ?= vvp
+IVERILOG_FLAGS ?= -g2012 -Wall -Wno-timescale
 PENNSIM_AS := scripts/assemble_with_pennsim.sh
 OBJ_TO_HEX := scripts/lc3_obj_to_hex.py
 
@@ -32,19 +33,19 @@ assemble: $(ADD_HEX) $(AND_HEX) $(NOT_HEX)
 
 $(BUILD)/lc3_core_tb.vvp: $(RTL) tb/lc3_core_tb.sv programs/fetch_smoke.hex
 	mkdir -p $(BUILD)
-	$(IVERILOG) -g2012 -Wall -o $@ tb/lc3_core_tb.sv $(RTL)
+	$(IVERILOG) $(IVERILOG_FLAGS) -o $@ tb/lc3_core_tb.sv $(RTL)
 
-$(BUILD)/lc3_add_tb.vvp: $(RTL) tb/lc3_add_tb.sv $(ADD_HEX)
+$(BUILD)/lc3_add_tb.vvp: $(RTL) tb/lc3_add_tb.sv tb/tb_helpers.svh $(ADD_HEX)
 	mkdir -p $(BUILD)
-	$(IVERILOG) -g2012 -Wall -o $@ tb/lc3_add_tb.sv $(RTL)
+	$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_add_tb.sv $(RTL)
 
-$(BUILD)/lc3_and_tb.vvp: $(RTL) tb/lc3_and_tb.sv $(AND_HEX)
+$(BUILD)/lc3_and_tb.vvp: $(RTL) tb/lc3_and_tb.sv tb/tb_helpers.svh $(AND_HEX)
 	mkdir -p $(BUILD)
-	$(IVERILOG) -g2012 -Wall -o $@ tb/lc3_and_tb.sv $(RTL)
+	$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_and_tb.sv $(RTL)
 
-$(BUILD)/lc3_not_tb.vvp: $(RTL) tb/lc3_not_tb.sv $(NOT_HEX)
+$(BUILD)/lc3_not_tb.vvp: $(RTL) tb/lc3_not_tb.sv tb/tb_helpers.svh $(NOT_HEX)
 	mkdir -p $(BUILD)
-	$(IVERILOG) -g2012 -Wall -o $@ tb/lc3_not_tb.sv $(RTL)
+	$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_not_tb.sv $(RTL)
 
 programs/%.obj: programs/%.asm tools/PennSim.jar
 	$(PENNSIM_AS) $<

@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+`include "tb_helpers.svh"
 
 module lc3_add_case #(
   parameter string NAME = "",
@@ -62,22 +63,23 @@ module lc3_add_case #(
             dut.regs[3] !== EXP_R3 || dut.regs[4] !== EXP_R4 ||
             dut.regs[5] !== EXP_R5 ||
             dut.n !== EXP_N || dut.z !== EXP_Z || dut.p !== EXP_P) begin
-          $display("FAIL %s", NAME);
-          $display("  regs: R1=x%04h R2=x%04h R3=x%04h R4=x%04h R5=x%04h",
-                   dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4], dut.regs[5]);
-          $display("  exp : R1=x%04h R2=x%04h R3=x%04h R4=x%04h R5=x%04h", EXP_R1, EXP_R2, EXP_R3, EXP_R4, EXP_R5);
-          $display("  cc  : N=%0b Z=%0b P=%0b, expected N=%0b Z=%0b P=%0b",
-                   dut.n, dut.z, dut.p, EXP_N, EXP_Z, EXP_P);
+          print_case_fail_regs5(
+            NAME,
+            dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4], dut.regs[5],
+            dut.n, dut.z, dut.p,
+            EXP_R1, EXP_R2, EXP_R3, EXP_R4, EXP_R5,
+            EXP_N, EXP_Z, EXP_P
+          );
           $fatal(1);
         end
 
-        $display("PASS %s", NAME);
+        print_case_pass(NAME);
         cycle = 100;
       end
     end
 
     if (!saw_halt) begin
-      $display("FAIL %s: CPU did not halt", NAME);
+      $display("[FAIL] %-14s CPU did not halt", NAME);
       $fatal(1);
     end
   end
@@ -88,7 +90,7 @@ module lc3_add_tb;
     $dumpfile("sim/lc3_add_tb.vcd");
     $dumpvars(0, lc3_add_tb);
     #2000;
-    $display("PASS: all ADD cases completed");
+    $display("[PASS] all ADD cases completed");
     $finish;
   end
 

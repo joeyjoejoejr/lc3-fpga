@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+`include "tb_helpers.svh"
 
 module lc3_and_tb;
   logic clk = 1'b0;
@@ -59,20 +60,23 @@ module lc3_and_tb;
             dut.n !== 1'b0 ||
             dut.z !== 1'b0 ||
             dut.p !== 1'b1) begin
-          $display("FAIL and_smoke");
-          $display("  regs: R1=x%04h R2=x%04h R3=x%04h R4=x%04h R5=x%04h",
-                   dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4], dut.regs[5]);
-          $display("  cc  : N=%0b Z=%0b P=%0b", dut.n, dut.z, dut.p);
+          print_case_fail_regs5(
+            "and_smoke",
+            dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4], dut.regs[5],
+            dut.n, dut.z, dut.p,
+            16'h0007, 16'h0003, 16'h0003, 16'h0000, 16'h0007,
+            1'b0, 1'b0, 1'b1
+          );
           $fatal(1);
         end
 
-        $display("PASS and_smoke");
+        print_case_pass("and_smoke");
         $finish;
       end
     end
 
     if (!saw_halt) begin
-      $display("FAIL and_smoke: CPU did not halt");
+      $display("[FAIL] %-14s CPU did not halt", "and_smoke");
       $fatal(1);
     end
   end
