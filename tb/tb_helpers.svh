@@ -3,8 +3,12 @@
 
 `timescale 1ns/1ps
 
+parameter string TB_GREEN = "\033[32m";
+parameter string TB_RED = "\033[31m";
+parameter string TB_RESET = "\033[0m";
+
 task automatic print_case_pass(input string name);
-  $display("[PASS] %-14s", name);
+  $display("%s[PASS]%s %-14s", TB_GREEN, TB_RESET, name);
 endtask
 
 task automatic print_regs5(
@@ -55,7 +59,7 @@ task automatic print_case_fail_regs5(
   input logic exp_z,
   input logic exp_p
 );
-  $display("[FAIL] %-14s", name);
+  $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, name);
   print_regs5("actual", act_r1, act_r2, act_r3, act_r4, act_r5);
   print_regs5("expected", exp_r1, exp_r2, exp_r3, exp_r4, exp_r5);
   print_cc("actual", act_n, act_z, act_p);
@@ -75,7 +79,7 @@ task automatic print_case_fail_regs2(
   input logic exp_z,
   input logic exp_p
 );
-  $display("[FAIL] %-14s", name);
+  $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, name);
   print_regs2("actual", act_r1, act_r2);
   print_regs2("expected", exp_r1, exp_r2);
   print_cc("actual", act_n, act_z, act_p);

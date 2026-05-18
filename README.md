@@ -55,6 +55,12 @@ The LEA smoke test checks PC-relative address calculation:
 make test-lea
 ```
 
+The LD smoke test checks PC-relative memory loads and condition codes:
+
+```sh
+make test-ld
+```
+
 The default test target stays on the passing fetch smoke test:
 
 ```sh

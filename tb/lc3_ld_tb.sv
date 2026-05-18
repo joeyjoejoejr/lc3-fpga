@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 `include "tb_helpers.svh"
 
-module lc3_and_tb;
+module lc3_ld_tb;
   logic clk = 1'b0;
   logic reset = 1'b1;
 
@@ -36,13 +36,13 @@ module lc3_and_tb;
   );
 
   initial begin
-    $readmemh("programs/and/and_smoke.hex", memory.mem);
+    $readmemh("programs/ld/ld_smoke.hex", memory.mem);
   end
 
   initial begin
     if ($test$plusargs("dump")) begin
-      $dumpfile("sim/lc3_and_tb.vcd");
-      $dumpvars(0, lc3_and_tb);
+      $dumpfile("sim/lc3_ld_tb.vcd");
+      $dumpvars(0, lc3_ld_tb);
     end
 
     saw_halt = 1'b0;
@@ -54,31 +54,30 @@ module lc3_and_tb;
       if (dut.halted) begin
         saw_halt = 1'b1;
 
-        if (dut.regs[1] !== 16'h0007 ||
-            dut.regs[2] !== 16'h0003 ||
-            dut.regs[3] !== 16'h0003 ||
-            dut.regs[4] !== 16'h0000 ||
-            dut.regs[5] !== 16'h0007 ||
+        if (dut.regs[1] !== 16'h1234 ||
+            dut.regs[2] !== 16'h8000 ||
+            dut.regs[3] !== 16'h0000 ||
+            dut.regs[4] !== 16'h00AA ||
             dut.n !== 1'b0 ||
             dut.z !== 1'b0 ||
             dut.p !== 1'b1) begin
-          print_case_fail_regs5(
-            "and_smoke",
-            dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4], dut.regs[5],
-            dut.n, dut.z, dut.p,
-            16'h0007, 16'h0003, 16'h0003, 16'h0000, 16'h0007,
-            1'b0, 1'b0, 1'b1
-          );
+          $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, "ld_smoke");
+          $display("       actual   R1=%04h R2=%04h R3=%04h R4=%04h",
+                   dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4]);
+          $display("       expected R1=%04h R2=%04h R3=%04h R4=%04h",
+                   16'h1234, 16'h8000, 16'h0000, 16'h00AA);
+          print_cc("actual", dut.n, dut.z, dut.p);
+          print_cc("expected", 1'b0, 1'b0, 1'b1);
           $fatal(1);
         end
 
-        print_case_pass("and_smoke");
+        print_case_pass("ld_smoke");
         $finish;
       end
     end
 
     if (!saw_halt) begin
-      $display("%s[FAIL]%s %-14s CPU did not halt", TB_RED, TB_RESET, "and_smoke");
+      $display("%s[FAIL]%s %-14s CPU did not halt", TB_RED, TB_RESET, "ld_smoke");
       $fatal(1);
     end
   end

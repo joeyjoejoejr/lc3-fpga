@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+`include "tb_helpers.svh"
 
 module lc3_core_tb;
   logic clk = 1'b0;
@@ -35,8 +36,10 @@ module lc3_core_tb;
   );
 
   initial begin
-    $dumpfile("sim/lc3_core_tb.vcd");
-    $dumpvars(0, lc3_core_tb);
+    if ($test$plusargs("dump")) begin
+      $dumpfile("sim/lc3_core_tb.vcd");
+      $dumpvars(0, lc3_core_tb);
+    end
 
     repeat (2) @(posedge clk);
     reset <= 1'b0;
@@ -53,7 +56,7 @@ module lc3_core_tb;
       $finish(1);
     end
 
-    $display("PASS: fetched instruction x%04h from x3000", ir);
+    $display("%s[PASS]%s %-14s fetched instruction x%04h from x3000", TB_GREEN, TB_RESET, "fetch_smoke", ir);
     $finish;
   end
 endmodule

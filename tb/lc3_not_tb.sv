@@ -40,8 +40,10 @@ module lc3_not_tb;
   end
 
   initial begin
-    $dumpfile("sim/lc3_not_tb.vcd");
-    $dumpvars(0, lc3_not_tb);
+    if ($test$plusargs("dump")) begin
+      $dumpfile("sim/lc3_not_tb.vcd");
+      $dumpvars(0, lc3_not_tb);
+    end
 
     saw_halt = 1'b0;
     repeat (2) @(posedge clk);
@@ -73,7 +75,7 @@ module lc3_not_tb;
     end
 
     if (!saw_halt) begin
-      $display("[FAIL] %-14s CPU did not halt", "not_smoke");
+      $display("%s[FAIL]%s %-14s CPU did not halt", TB_RED, TB_RESET, "not_smoke");
       $fatal(1);
     end
   end

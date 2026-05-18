@@ -14,16 +14,21 @@ module lc3_core (
 );
   typedef enum logic [3:0] {
     STATE_FETCH,
+    STATE_FETCH_WAIT,
     STATE_LATCH_IR,
     STATE_DECODE,
     STATE_EXEC_ALU,
     STATE_EXEC_BR,
     STATE_EXEC_LEA,
+    STATE_FETCH_LD,
+    STATE_FETCH_LD_WAIT,
+    STATE_EXEC_LD,
     STATE_HALT
   } state_t;
 
   localparam logic[3:0] OP_BR = 4'b0000;
   localparam logic[3:0] OP_ADD = 4'b0001;
+  localparam logic[3:0] OP_LD = 4'b0010;
   localparam logic[3:0] OP_AND = 4'b0101;
   localparam logic[3:0] OP_NOT = 4'b1001;
   localparam logic[3:0] OP_LEA = 4'b1110;
@@ -85,12 +90,11 @@ module lc3_core (
   assign alu_result = opcode == OP_ADD ?
     add_result : (opcode == OP_AND) ?
     and_result : (opcode == OP_NOT) ?
-    not_result : 15'hxxxx;
+    not_result : 16'hxxxx;
 
   // LEA
   assign lea_result = pc + pc_offset9;
 
-  assign mem_addr = pc;
   assign mem_wdata = 16'h0000;
   assign mem_we = 1'b0;
   assign halted = state == STATE_HALT;
@@ -112,11 +116,15 @@ module lc3_core (
       for (i = 0; i < 8; i = i + 1) begin
         regs[i] <= 16'h0000;
       end
+      mem_addr <= 16'h0000;
     end else begin
       case (state)
         STATE_FETCH: begin
-          state <= STATE_LATCH_IR;
+          mem_addr <= pc;
+          state <= STATE_FETCH_WAIT;
         end
+
+        STATE_FETCH_WAIT: state <= STATE_LATCH_IR;
 
         STATE_LATCH_IR: begin
           ir <= mem_rdata;
@@ -129,6 +137,7 @@ module lc3_core (
             OP_BR: state <= STATE_EXEC_BR;
             OP_ADD, OP_AND, OP_NOT: state <= STATE_EXEC_ALU;
             OP_LEA: state <= STATE_EXEC_LEA;
+            OP_LD: state <= STATE_FETCH_LD;
             default: state <= STATE_HALT;
           endcase
         end
@@ -147,6 +156,19 @@ module lc3_core (
         STATE_EXEC_LEA: begin
           { n, z, p } <= flags_for(lea_result);
           regs[dr] <= lea_result;
+          state <= STATE_FETCH;
+        end
+
+        STATE_FETCH_LD: begin
+          mem_addr <= pc + pc_offset9;
+          state <= STATE_FETCH_LD_WAIT;
+        end
+
+        STATE_FETCH_LD_WAIT: state <= STATE_EXEC_LD;
+
+        STATE_EXEC_LD: begin
+          { n, z, p } <= flags_for(mem_rdata);
+          regs[dr] <= mem_rdata;
           state <= STATE_FETCH;
         end
 

@@ -79,7 +79,7 @@ module lc3_add_case #(
     end
 
     if (!saw_halt) begin
-      $display("[FAIL] %-14s CPU did not halt", NAME);
+      $display("%s[FAIL]%s %-14s CPU did not halt", TB_RED, TB_RESET, NAME);
       $fatal(1);
     end
   end
@@ -87,10 +87,12 @@ endmodule
 
 module lc3_add_tb;
   initial begin
-    $dumpfile("sim/lc3_add_tb.vcd");
-    $dumpvars(0, lc3_add_tb);
+    if ($test$plusargs("dump")) begin
+      $dumpfile("sim/lc3_add_tb.vcd");
+      $dumpvars(0, lc3_add_tb);
+    end
     #2000;
-    $display("[PASS] all ADD cases completed");
+    $display("%s[PASS]%s all ADD cases completed", TB_GREEN, TB_RESET);
     $finish;
   end
 
