@@ -49,6 +49,12 @@ The BR smoke test checks taken and not-taken branches:
 make test-br
 ```
 
+The LEA smoke test checks PC-relative address calculation:
+
+```sh
+make test-lea
+```
+
 The default test target stays on the passing fetch smoke test:
 
 ```sh

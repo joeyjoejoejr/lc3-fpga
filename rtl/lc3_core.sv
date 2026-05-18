@@ -12,7 +12,7 @@ module lc3_core (
   output logic [15:0] pc,
   output logic [15:0] ir
 );
-  typedef enum logic [2:0] {
+  typedef enum logic [3:0] {
     STATE_FETCH,
     STATE_LATCH_IR,
     STATE_DECODE,
@@ -20,6 +20,7 @@ module lc3_core (
     STATE_EXEC_AND,
     STATE_EXEC_NOT,
     STATE_EXEC_BR,
+    STATE_EXEC_LEA,
     STATE_HALT
   } state_t;
 
@@ -27,6 +28,7 @@ module lc3_core (
   localparam logic[3:0] OP_ADD = 4'b0001;
   localparam logic[3:0] OP_AND = 4'b0101;
   localparam logic[3:0] OP_NOT = 4'b1001;
+  localparam logic[3:0] OP_LEA = 4'b1110;
 
   state_t state;
   logic [15:0] regs [0:7];
@@ -55,7 +57,8 @@ module lc3_core (
   logic [15:0] and_rhs;
   logic [15:0] and_result;
 
-  logic[15:0] not_result;
+  logic [15:0] not_result;
+  logic [15:0] lea_result;
 
   assign opcode = ir[15:12];
   assign dr = ir[11:9];
@@ -78,6 +81,9 @@ module lc3_core (
 
   // NOT
   assign not_result = ~regs[sr1];
+
+  // LEA
+  assign lea_result = pc + pc_offset9;
 
   assign mem_addr = pc;
   assign mem_wdata = 16'h0000;
@@ -119,6 +125,7 @@ module lc3_core (
             OP_ADD: state <= STATE_EXEC_ADD;
             OP_AND: state <= STATE_EXEC_AND;
             OP_NOT: state <= STATE_EXEC_NOT;
+            OP_LEA: state <= STATE_EXEC_LEA;
             default: state <= STATE_HALT;
           endcase
         end
@@ -143,6 +150,12 @@ module lc3_core (
         STATE_EXEC_NOT: begin
           { n, z, p } <= flags_for(not_result);
           regs[dr] <= not_result;
+          state <= STATE_FETCH;
+        end
+
+        STATE_EXEC_LEA: begin
+          { n, z, p } <= flags_for(lea_result);
+          regs[dr] <= lea_result;
           state <= STATE_FETCH;
         end
 
