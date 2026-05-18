@@ -1,21 +1,50 @@
 IVERILOG ?= iverilog
 VVP ?= vvp
+PENNSIM_AS := scripts/assemble_with_pennsim.sh
+OBJ_TO_HEX := scripts/lc3_obj_to_hex.py
 
 RTL := rtl/lc3_core.sv rtl/lc3_memory.sv
-TB := tb/lc3_core_tb.sv
 BUILD := sim/build
+ADD_ASM := $(wildcard programs/add/*.asm)
+ADD_HEX := $(ADD_ASM:.asm=.hex)
+AND_ASM := $(wildcard programs/and/*.asm)
+AND_HEX := $(AND_ASM:.asm=.hex)
 
-.PHONY: test wave clean
+.PHONY: test test-fetch test-add test-and assemble wave clean
 
-test: $(BUILD)/lc3_core_tb.vvp
+test: test-fetch test-add test-and
+
+test-fetch: $(BUILD)/lc3_core_tb.vvp
 	$(VVP) $<
 
-$(BUILD)/lc3_core_tb.vvp: $(RTL) $(TB) programs/fetch_smoke.hex
+test-add: $(BUILD)/lc3_add_tb.vvp $(ADD_HEX)
+	$(VVP) $<
+
+test-and: $(BUILD)/lc3_and_tb.vvp $(AND_HEX)
+	$(VVP) $<
+
+assemble: $(ADD_HEX) $(AND_HEX)
+
+$(BUILD)/lc3_core_tb.vvp: $(RTL) tb/lc3_core_tb.sv programs/fetch_smoke.hex
 	mkdir -p $(BUILD)
-	$(IVERILOG) -g2012 -Wall -o $@ $(TB) $(RTL)
+	$(IVERILOG) -g2012 -Wall -o $@ tb/lc3_core_tb.sv $(RTL)
+
+$(BUILD)/lc3_add_tb.vvp: $(RTL) tb/lc3_add_tb.sv $(ADD_HEX)
+	mkdir -p $(BUILD)
+	$(IVERILOG) -g2012 -Wall -o $@ tb/lc3_add_tb.sv $(RTL)
+
+$(BUILD)/lc3_and_tb.vvp: $(RTL) tb/lc3_and_tb.sv $(AND_HEX)
+	mkdir -p $(BUILD)
+	$(IVERILOG) -g2012 -Wall -o $@ tb/lc3_and_tb.sv $(RTL)
+
+programs/%.obj: programs/%.asm tools/PennSim.jar
+	$(PENNSIM_AS) $<
+
+programs/%.hex: programs/%.obj
+	$(OBJ_TO_HEX) $< $@
 
 wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) sim/*.vcd
+	rm -rf $(BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex

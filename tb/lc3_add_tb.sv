@@ -1,0 +1,137 @@
+`timescale 1ns/1ps
+
+module lc3_add_case #(
+  parameter string NAME = "",
+  parameter string INIT_FILE = "",
+  parameter logic [15:0] EXP_R1 = 16'h0000,
+  parameter logic [15:0] EXP_R2 = 16'h0000,
+  parameter logic [15:0] EXP_R3 = 16'h0000,
+  parameter logic [15:0] EXP_R4 = 16'h0000,
+  parameter logic [15:0] EXP_R5 = 16'h0000,
+  parameter logic        EXP_N = 1'b0,
+  parameter logic        EXP_Z = 1'b0,
+  parameter logic        EXP_P = 1'b0
+);
+  logic clk = 1'b0;
+  logic reset = 1'b1;
+
+  logic [15:0] mem_addr;
+  logic [15:0] mem_rdata;
+  logic [15:0] mem_wdata;
+  logic        mem_we;
+  logic [15:0] pc;
+  logic [15:0] ir;
+  integer      cycle;
+  logic        saw_halt;
+
+  always #5 clk = ~clk;
+
+  lc3_core dut (
+    .clk(clk),
+    .reset(reset),
+    .mem_addr(mem_addr),
+    .mem_rdata(mem_rdata),
+    .mem_wdata(mem_wdata),
+    .mem_we(mem_we),
+    .pc(pc),
+    .ir(ir)
+  );
+
+  lc3_memory memory (
+    .clk(clk),
+    .addr(mem_addr),
+    .rdata(mem_rdata),
+    .wdata(mem_wdata),
+    .we(mem_we)
+  );
+
+  initial begin
+    $readmemh(INIT_FILE, memory.mem);
+  end
+
+  initial begin
+    saw_halt = 1'b0;
+    repeat (2) @(posedge clk);
+    reset <= 1'b0;
+
+    for (cycle = 0; cycle < 100; cycle = cycle + 1) begin
+      @(posedge clk);
+      if (dut.halted) begin
+        saw_halt = 1'b1;
+        if (dut.regs[1] !== EXP_R1 || dut.regs[2] !== EXP_R2 ||
+            dut.regs[3] !== EXP_R3 || dut.regs[4] !== EXP_R4 ||
+            dut.regs[5] !== EXP_R5 ||
+            dut.n !== EXP_N || dut.z !== EXP_Z || dut.p !== EXP_P) begin
+          $display("FAIL %s", NAME);
+          $display("  regs: R1=x%04h R2=x%04h R3=x%04h R4=x%04h R5=x%04h",
+                   dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4], dut.regs[5]);
+          $display("  exp : R1=x%04h R2=x%04h R3=x%04h R4=x%04h R5=x%04h", EXP_R1, EXP_R2, EXP_R3, EXP_R4, EXP_R5);
+          $display("  cc  : N=%0b Z=%0b P=%0b, expected N=%0b Z=%0b P=%0b",
+                   dut.n, dut.z, dut.p, EXP_N, EXP_Z, EXP_P);
+          $fatal(1);
+        end
+
+        $display("PASS %s", NAME);
+        cycle = 100;
+      end
+    end
+
+    if (!saw_halt) begin
+      $display("FAIL %s: CPU did not halt", NAME);
+      $fatal(1);
+    end
+  end
+endmodule
+
+module lc3_add_tb;
+  initial begin
+    $dumpfile("sim/lc3_add_tb.vcd");
+    $dumpvars(0, lc3_add_tb);
+    #2000;
+    $display("PASS: all ADD cases completed");
+    $finish;
+  end
+
+  lc3_add_case #(
+    .NAME("add_imm_pos"),
+    .INIT_FILE("programs/add/add_imm_pos.hex"),
+    .EXP_R1(16'h0005),
+    .EXP_P(1'b1)
+  ) add_imm_pos();
+
+  lc3_add_case #(
+    .NAME("add_imm_neg"),
+    .INIT_FILE("programs/add/add_imm_neg.hex"),
+    .EXP_R1(16'hFFFF),
+    .EXP_N(1'b1)
+  ) add_imm_neg();
+
+  lc3_add_case #(
+    .NAME("add_reg"),
+    .INIT_FILE("programs/add/add_reg.hex"),
+    .EXP_R1(16'h0005),
+    .EXP_R2(16'h0003),
+    .EXP_R3(16'h0008),
+    .EXP_P(1'b1)
+  ) add_reg();
+
+  lc3_add_case #(
+    .NAME("add_cc"),
+    .INIT_FILE("programs/add/add_cc.hex"),
+    .EXP_R1(16'h0001),
+    .EXP_R2(16'h0000),
+    .EXP_R3(16'hFFFF),
+    .EXP_N(1'b1)
+  ) add_cc();
+
+  lc3_add_case #(
+    .NAME("add_smoke"),
+    .INIT_FILE("programs/add/add_smoke.hex"),
+    .EXP_R1(16'h0005),
+    .EXP_R2(16'h0008),
+    .EXP_R3(16'h000D),
+    .EXP_R4(16'h0000),
+    .EXP_R5(16'hFFFF),
+    .EXP_N(1'b1)
+  ) add_smoke();
+endmodule

@@ -13,6 +13,36 @@ The starter core currently proves reset and instruction fetch:
 - the core reads one instruction from memory
 - `PC` advances to the next word
 
+## Assembling LC-3 Programs
+
+This project uses the local copy of PennSim in `tools/PennSim.jar`:
+
+```sh
+make assemble
+```
+
+That assembles the files in `programs/add/*.asm` and converts PennSim `.obj`
+files into `$readmemh`-friendly `.hex` files.
+
+The ADD tests are set up but are expected to fail until the core executes more
+than fetch:
+
+```sh
+make test-add
+```
+
+The AND smoke test is similarly available once ADD works:
+
+```sh
+make test-and
+```
+
+The default test target stays on the passing fetch smoke test:
+
+```sh
+make test
+```
+
 ## Suggested Milestones
 
 1. Fetch one instruction from memory.
@@ -35,3 +65,7 @@ writeback.
 
 Once that works, you can decide whether to make a more textbook-style datapath
 for learning value.
+
+## References
+
+- [Instruction formats](docs/instruction-formats.md)

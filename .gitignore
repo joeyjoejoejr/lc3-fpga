@@ -4,6 +4,10 @@ sim/*.vcd
 *.vvp
 *.fst
 *.lxt
+*.obj
+*.sym
+programs/add/*.hex
+programs/and/*.hex
 
 # FPGA build outputs
 build/
