@@ -43,6 +43,12 @@ The NOT smoke test checks complementing zero and all ones:
 make test-not
 ```
 
+The BR smoke test checks taken and not-taken branches:
+
+```sh
+make test-br
+```
+
 The default test target stays on the passing fetch smoke test:
 
 ```sh

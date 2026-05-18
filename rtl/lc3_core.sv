@@ -19,9 +19,11 @@ module lc3_core (
     STATE_EXEC_ADD,
     STATE_EXEC_AND,
     STATE_EXEC_NOT,
+    STATE_EXEC_BR,
     STATE_HALT
   } state_t;
 
+  localparam logic[3:0] OP_BR = 4'b0000;
   localparam logic[3:0] OP_ADD = 4'b0001;
   localparam logic[3:0] OP_AND = 4'b0101;
   localparam logic[3:0] OP_NOT = 4'b1001;
@@ -43,6 +45,10 @@ module lc3_core (
   logic is_imm;
   logic [15:0] imm5;
 
+  // BR
+  logic [2:0] nzp;
+  logic [15:0] pc_offset9;
+
   logic [15:0] add_rhs;
   logic [15:0] add_result;
 
@@ -57,6 +63,10 @@ module lc3_core (
   assign is_imm = ir[5];
   assign sr2 = ir[2:0];
   assign imm5 = {{11{ir[4]}}, ir[4:0]};
+
+  // BR
+  assign nzp = ir[11:9];
+  assign pc_offset9 = {{7{ir[8]}}, ir[8:0]};
 
   // ADD
   assign add_rhs = is_imm ? imm5 : regs[sr2];
@@ -105,11 +115,17 @@ module lc3_core (
 
         STATE_DECODE: begin
           case (opcode)
+            OP_BR: state <= STATE_EXEC_BR;
             OP_ADD: state <= STATE_EXEC_ADD;
             OP_AND: state <= STATE_EXEC_AND;
             OP_NOT: state <= STATE_EXEC_NOT;
             default: state <= STATE_HALT;
           endcase
+        end
+
+        STATE_EXEC_BR: begin
+          if(|(nzp & {n,z,p})) pc <= pc + pc_offset9;
+          state <= STATE_FETCH;
         end
 
         STATE_EXEC_ADD: begin
