@@ -9,10 +9,12 @@ ADD_ASM := $(wildcard programs/add/*.asm)
 ADD_HEX := $(ADD_ASM:.asm=.hex)
 AND_ASM := $(wildcard programs/and/*.asm)
 AND_HEX := $(AND_ASM:.asm=.hex)
+NOT_ASM := $(wildcard programs/not/*.asm)
+NOT_HEX := $(NOT_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and assemble wave clean
+.PHONY: test test-fetch test-add test-and test-not assemble wave clean
 
-test: test-fetch test-add test-and
+test: test-fetch test-add test-and test-not
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	$(VVP) $<
@@ -23,7 +25,10 @@ test-add: $(BUILD)/lc3_add_tb.vvp $(ADD_HEX)
 test-and: $(BUILD)/lc3_and_tb.vvp $(AND_HEX)
 	$(VVP) $<
 
-assemble: $(ADD_HEX) $(AND_HEX)
+test-not: $(BUILD)/lc3_not_tb.vvp $(NOT_HEX)
+	$(VVP) $<
+
+assemble: $(ADD_HEX) $(AND_HEX) $(NOT_HEX)
 
 $(BUILD)/lc3_core_tb.vvp: $(RTL) tb/lc3_core_tb.sv programs/fetch_smoke.hex
 	mkdir -p $(BUILD)
@@ -37,6 +42,10 @@ $(BUILD)/lc3_and_tb.vvp: $(RTL) tb/lc3_and_tb.sv $(AND_HEX)
 	mkdir -p $(BUILD)
 	$(IVERILOG) -g2012 -Wall -o $@ tb/lc3_and_tb.sv $(RTL)
 
+$(BUILD)/lc3_not_tb.vvp: $(RTL) tb/lc3_not_tb.sv $(NOT_HEX)
+	mkdir -p $(BUILD)
+	$(IVERILOG) -g2012 -Wall -o $@ tb/lc3_not_tb.sv $(RTL)
+
 programs/%.obj: programs/%.asm tools/PennSim.jar
 	$(PENNSIM_AS) $<
 
@@ -47,4 +56,4 @@ wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex
+	rm -rf $(BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex

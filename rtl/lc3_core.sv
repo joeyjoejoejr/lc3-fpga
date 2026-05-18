@@ -18,11 +18,13 @@ module lc3_core (
     STATE_DECODE,
     STATE_EXEC_ADD,
     STATE_EXEC_AND,
+    STATE_EXEC_NOT,
     STATE_HALT
   } state_t;
 
   localparam logic[3:0] OP_ADD = 4'b0001;
   localparam logic[3:0] OP_AND = 4'b0101;
+  localparam logic[3:0] OP_NOT = 4'b1001;
 
   state_t state;
   logic [15:0] regs [0:7];
@@ -47,6 +49,8 @@ module lc3_core (
   logic [15:0] and_rhs;
   logic [15:0] and_result;
 
+  logic[15:0] not_result;
+
   assign opcode = ir[15:12];
   assign dr = ir[11:9];
   assign sr1 = ir[8:6];
@@ -62,10 +66,19 @@ module lc3_core (
   assign and_rhs = is_imm ? imm5 : regs[sr2];
   assign and_result = regs[sr1] & and_rhs;
 
+  // NOT
+  assign not_result = ~regs[sr1];
+
   assign mem_addr = pc;
   assign mem_wdata = 16'h0000;
   assign mem_we = 1'b0;
   assign halted = state == STATE_HALT;
+
+  function automatic logic[2:0] flags_for(input logic [15:0] value);
+    flags_for[2] = value[15]; //N
+    flags_for[1] = value == 16'h0000; //Z
+    flags_for[0] = value != 16'h0000 && !value[15]; //P
+  endfunction
 
   always_ff @(posedge clk) begin
     if (reset) begin
@@ -94,23 +107,26 @@ module lc3_core (
           case (opcode)
             OP_ADD: state <= STATE_EXEC_ADD;
             OP_AND: state <= STATE_EXEC_AND;
+            OP_NOT: state <= STATE_EXEC_NOT;
             default: state <= STATE_HALT;
           endcase
         end
 
         STATE_EXEC_ADD: begin
-          n <= add_result[15];
-          z <= add_result == 16'h0000;
-          p <= add_result != 16'h0000 && !add_result[15];
+          { n, z, p } <= flags_for(add_result);
           regs[dr] <= add_result;
           state <= STATE_FETCH;
         end
 
         STATE_EXEC_AND: begin
-          n <= and_result[15];
-          z <= and_result == 16'h0000;
-          p <= and_result != 16'h0000 && !and_result[15];
+          { n, z, p } <= flags_for(and_result);
           regs[dr] <= and_result;
+          state <= STATE_FETCH;
+        end
+
+        STATE_EXEC_NOT: begin
+          { n, z, p } <= flags_for(not_result);
+          regs[dr] <= not_result;
           state <= STATE_FETCH;
         end
 

@@ -37,6 +37,12 @@ The AND smoke test is similarly available once ADD works:
 make test-and
 ```
 
+The NOT smoke test checks complementing zero and all ones:
+
+```sh
+make test-not
+```
+
 The default test target stays on the passing fetch smoke test:
 
 ```sh
@@ -68,4 +74,5 @@ for learning value.
 
 ## References
 
+- [Implementation roadmap](docs/implementation-roadmap.md)
 - [Instruction formats](docs/instruction-formats.md)
