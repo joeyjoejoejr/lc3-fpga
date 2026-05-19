@@ -75,6 +75,15 @@ make test-ldr
 make test-str
 ```
 
+The jump tests cover `JMP`, `RET`, `JSR`, and `JSRR`:
+
+```sh
+make test-jmp
+make test-ret
+make test-jsr
+make test-jsrr
+```
+
 The default test target stays on the passing fetch smoke test:
 
 ```sh

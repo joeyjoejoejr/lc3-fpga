@@ -25,6 +25,8 @@ module lc3_core (
     STATE_REG_WRITEBACK,
     STATE_EXEC_STORE,
     STATE_WRITE_STORE,
+    STATE_EXEC_JMP,
+    STATE_EXEC_JSR,
     STATE_HALT
   } state_t;
 
@@ -32,10 +34,12 @@ module lc3_core (
   localparam logic[3:0] OP_ADD = 4'b0001;
   localparam logic[3:0] OP_LD = 4'b0010;
   localparam logic[3:0] OP_ST = 4'b0011;
+  localparam logic[3:0] OP_JSR = 4'b0100;
   localparam logic[3:0] OP_AND = 4'b0101;
   localparam logic[3:0] OP_LDR = 4'b0110;
   localparam logic[3:0] OP_STR = 4'b0111;
   localparam logic[3:0] OP_NOT = 4'b1001;
+  localparam logic[3:0] OP_JMP = 4'b1100;
   localparam logic[3:0] OP_LEA = 4'b1110;
 
   state_t state;
@@ -56,12 +60,16 @@ module lc3_core (
   logic [2:0] sr2;
   logic is_imm;
   logic [15:0] imm5;
+  logic is_jsr;
 
   // BR
   logic [2:0] nzp;
 
   logic [15:0] pc_offset9;
   logic [15:0] pc_offset_addr;
+
+  logic [15:0] pc_offset11;
+  logic [15:0] pc_offset_11_addr;
 
   logic [15:0] offset6;
   logic [15:0] abs_addr;
@@ -85,10 +93,14 @@ module lc3_core (
   assign is_imm = ir[5];
   assign sr2 = ir[2:0];
   assign imm5 = {{11{ir[4]}}, ir[4:0]};
+  assign is_jsr = ir[11];
 
   assign nzp = ir[11:9];
   assign pc_offset9 = {{7{ir[8]}}, ir[8:0]};
   assign pc_offset_addr = pc + pc_offset9;
+
+  assign pc_offset11 = {{5{ir[10]}}, ir[10:0]};
+  assign pc_offset_11_addr = pc + pc_offset11;
 
   assign offset6 = {{10{ir[5]}}, ir[5:0]};
   assign abs_addr = regs[br] + offset6;
@@ -156,6 +168,8 @@ module lc3_core (
             OP_LEA: state <= STATE_EXEC_LEA;
             OP_LD, OP_LDR: state <= STATE_FETCH_MEM;
             OP_ST, OP_STR: state <= STATE_EXEC_STORE;
+            OP_JMP: state <= STATE_EXEC_JMP;
+            OP_JSR: state <= STATE_EXEC_JSR;
             default: state <= STATE_HALT;
           endcase
         end
@@ -201,6 +215,18 @@ module lc3_core (
 
         STATE_WRITE_STORE: begin
           mem_we <= 1'b0;
+          state <= STATE_FETCH;
+        end
+
+        STATE_EXEC_JMP: begin
+          pc <= regs[br];
+          state <= STATE_FETCH;
+        end
+
+        STATE_EXEC_JSR: begin
+          regs[7] <= pc;
+          if(is_jsr) pc <= pc_offset_11_addr;
+          else pc <= regs[br];
           state <= STATE_FETCH;
         end
 
