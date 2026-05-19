@@ -61,6 +61,12 @@ The LD smoke test checks PC-relative memory loads and condition codes:
 make test-ld
 ```
 
+The ST smoke test checks PC-relative memory stores, including a negative offset:
+
+```sh
+make test-st
+```
+
 The default test target stays on the passing fetch smoke test:
 
 ```sh

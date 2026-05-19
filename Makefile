@@ -20,10 +20,12 @@ LEA_ASM := $(wildcard programs/lea/*.asm)
 LEA_HEX := $(LEA_ASM:.asm=.hex)
 LD_ASM := $(wildcard programs/ld/*.asm)
 LD_HEX := $(LD_ASM:.asm=.hex)
+ST_ASM := $(wildcard programs/st/*.asm)
+ST_HEX := $(ST_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld assemble wave clean
+.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st assemble wave clean
 
-test: test-fetch test-add test-and test-not test-br test-lea test-ld
+test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -46,7 +48,10 @@ test-lea: $(BUILD)/lc3_lea_tb.vvp $(LEA_HEX)
 test-ld: $(BUILD)/lc3_ld_tb.vvp $(LD_HEX)
 	@$(RUN_VVP) $<
 
-assemble: $(ADD_HEX) $(AND_HEX) $(NOT_HEX) $(BR_HEX) $(LEA_HEX) $(LD_HEX)
+test-st: $(BUILD)/lc3_st_tb.vvp $(ST_HEX)
+	@$(RUN_VVP) $<
+
+assemble: $(ADD_HEX) $(AND_HEX) $(NOT_HEX) $(BR_HEX) $(LEA_HEX) $(LD_HEX) $(ST_HEX)
 
 $(BUILD)/lc3_core_tb.vvp: $(RTL) tb/lc3_core_tb.sv tb/tb_helpers.svh programs/fetch_smoke.hex
 	@mkdir -p $(BUILD)
@@ -76,6 +81,10 @@ $(BUILD)/lc3_ld_tb.vvp: $(RTL) tb/lc3_ld_tb.sv tb/tb_helpers.svh $(LD_HEX)
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_ld_tb.sv $(RTL)
 
+$(BUILD)/lc3_st_tb.vvp: $(RTL) tb/lc3_st_tb.sv tb/tb_helpers.svh $(ST_HEX)
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_st_tb.sv $(RTL)
+
 programs/%.obj: programs/%.asm tools/PennSim.jar
 	@$(PENNSIM_AS) $< >/dev/null
 
@@ -87,4 +96,4 @@ wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex
+	rm -rf $(BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex

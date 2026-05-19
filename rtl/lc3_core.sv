@@ -23,12 +23,15 @@ module lc3_core (
     STATE_FETCH_LD,
     STATE_FETCH_LD_WAIT,
     STATE_EXEC_LD,
+    STATE_EXEC_ST,
+    STATE_WRITE_ST,
     STATE_HALT
   } state_t;
 
   localparam logic[3:0] OP_BR = 4'b0000;
   localparam logic[3:0] OP_ADD = 4'b0001;
   localparam logic[3:0] OP_LD = 4'b0010;
+  localparam logic[3:0] OP_ST = 4'b0011;
   localparam logic[3:0] OP_AND = 4'b0101;
   localparam logic[3:0] OP_NOT = 4'b1001;
   localparam logic[3:0] OP_LEA = 4'b1110;
@@ -45,6 +48,7 @@ module lc3_core (
   // Instruction extraction
   logic [3:0] opcode;
   logic [2:0] dr;
+  logic [2:0] sr;
   logic [2:0] sr1;
   logic [2:0] sr2;
   logic is_imm;
@@ -53,6 +57,7 @@ module lc3_core (
   // BR
   logic [2:0] nzp;
   logic [15:0] pc_offset9;
+  logic [15:0] pc_offset_addr;
 
   logic [15:0] add_rhs;
   logic [15:0] add_result;
@@ -67,14 +72,15 @@ module lc3_core (
 
   assign opcode = ir[15:12];
   assign dr = ir[11:9];
+  assign sr = ir[11:9];
   assign sr1 = ir[8:6];
   assign is_imm = ir[5];
   assign sr2 = ir[2:0];
   assign imm5 = {{11{ir[4]}}, ir[4:0]};
 
-  // BR
   assign nzp = ir[11:9];
   assign pc_offset9 = {{7{ir[8]}}, ir[8:0]};
+  assign pc_offset_addr = pc + pc_offset9;
 
   // ADD
   assign add_rhs = is_imm ? imm5 : regs[sr2];
@@ -93,10 +99,8 @@ module lc3_core (
     not_result : 16'hxxxx;
 
   // LEA
-  assign lea_result = pc + pc_offset9;
+  assign lea_result = pc_offset_addr;
 
-  assign mem_wdata = 16'h0000;
-  assign mem_we = 1'b0;
   assign halted = state == STATE_HALT;
 
   function automatic logic[2:0] flags_for(input logic [15:0] value);
@@ -117,6 +121,8 @@ module lc3_core (
         regs[i] <= 16'h0000;
       end
       mem_addr <= 16'h0000;
+      mem_wdata <= 16'h0000;
+      mem_we <= 1'b0;
     end else begin
       case (state)
         STATE_FETCH: begin
@@ -138,12 +144,13 @@ module lc3_core (
             OP_ADD, OP_AND, OP_NOT: state <= STATE_EXEC_ALU;
             OP_LEA: state <= STATE_EXEC_LEA;
             OP_LD: state <= STATE_FETCH_LD;
+            OP_ST: state <= STATE_EXEC_ST;
             default: state <= STATE_HALT;
           endcase
         end
 
         STATE_EXEC_BR: begin
-          if(|(nzp & {n,z,p})) pc <= pc + pc_offset9;
+          if(|(nzp & {n,z,p})) pc <= pc_offset_addr;
           state <= STATE_FETCH;
         end
 
@@ -160,7 +167,7 @@ module lc3_core (
         end
 
         STATE_FETCH_LD: begin
-          mem_addr <= pc + pc_offset9;
+          mem_addr <= pc_offset_addr;
           state <= STATE_FETCH_LD_WAIT;
         end
 
@@ -169,6 +176,18 @@ module lc3_core (
         STATE_EXEC_LD: begin
           { n, z, p } <= flags_for(mem_rdata);
           regs[dr] <= mem_rdata;
+          state <= STATE_FETCH;
+        end
+
+        STATE_EXEC_ST: begin
+          mem_wdata <= regs[sr];
+          mem_addr <= pc_offset_addr;
+          mem_we <= 1'b1;
+          state <= STATE_WRITE_ST;
+        end
+
+        STATE_WRITE_ST: begin
+          mem_we <= 1'b0;
           state <= STATE_FETCH;
         end
 
