@@ -67,6 +67,14 @@ The ST smoke test checks PC-relative memory stores, including a negative offset:
 make test-st
 ```
 
+The LDR and STR smoke tests check base-register addressing with positive and
+negative offsets:
+
+```sh
+make test-ldr
+make test-str
+```
+
 The default test target stays on the passing fetch smoke test:
 
 ```sh

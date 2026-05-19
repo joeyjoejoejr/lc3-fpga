@@ -22,10 +22,14 @@ LD_ASM := $(wildcard programs/ld/*.asm)
 LD_HEX := $(LD_ASM:.asm=.hex)
 ST_ASM := $(wildcard programs/st/*.asm)
 ST_HEX := $(ST_ASM:.asm=.hex)
+LDR_ASM := $(wildcard programs/ldr/*.asm)
+LDR_HEX := $(LDR_ASM:.asm=.hex)
+STR_ASM := $(wildcard programs/str/*.asm)
+STR_HEX := $(STR_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st assemble wave clean
+.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str assemble wave clean
 
-test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st
+test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -51,7 +55,13 @@ test-ld: $(BUILD)/lc3_ld_tb.vvp $(LD_HEX)
 test-st: $(BUILD)/lc3_st_tb.vvp $(ST_HEX)
 	@$(RUN_VVP) $<
 
-assemble: $(ADD_HEX) $(AND_HEX) $(NOT_HEX) $(BR_HEX) $(LEA_HEX) $(LD_HEX) $(ST_HEX)
+test-ldr: $(BUILD)/lc3_ldr_tb.vvp $(LDR_HEX)
+	@$(RUN_VVP) $<
+
+test-str: $(BUILD)/lc3_str_tb.vvp $(STR_HEX)
+	@$(RUN_VVP) $<
+
+assemble: $(ADD_HEX) $(AND_HEX) $(NOT_HEX) $(BR_HEX) $(LEA_HEX) $(LD_HEX) $(ST_HEX) $(LDR_HEX) $(STR_HEX)
 
 $(BUILD)/lc3_core_tb.vvp: $(RTL) tb/lc3_core_tb.sv tb/tb_helpers.svh programs/fetch_smoke.hex
 	@mkdir -p $(BUILD)
@@ -85,6 +95,14 @@ $(BUILD)/lc3_st_tb.vvp: $(RTL) tb/lc3_st_tb.sv tb/tb_helpers.svh $(ST_HEX)
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_st_tb.sv $(RTL)
 
+$(BUILD)/lc3_ldr_tb.vvp: $(RTL) tb/lc3_ldr_tb.sv tb/tb_helpers.svh $(LDR_HEX)
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_ldr_tb.sv $(RTL)
+
+$(BUILD)/lc3_str_tb.vvp: $(RTL) tb/lc3_str_tb.sv tb/tb_helpers.svh $(STR_HEX)
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_str_tb.sv $(RTL)
+
 programs/%.obj: programs/%.asm tools/PennSim.jar
 	@$(PENNSIM_AS) $< >/dev/null
 
@@ -96,4 +114,4 @@ wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex
+	rm -rf $(BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex
