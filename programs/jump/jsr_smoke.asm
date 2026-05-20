@@ -1,6 +1,7 @@
         .ORIG x3000
         JSR SUBROUTINE
 RETURN
+        ADD R4, R7, #0
         ADD R2, R2, #2
         HALT
 SUBROUTINE

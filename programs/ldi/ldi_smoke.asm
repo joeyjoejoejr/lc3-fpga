@@ -1,0 +1,20 @@
+        .ORIG x3000
+        BR START
+EARLY_PTR
+        .FILL EARLY_VALUE
+START
+        LDI R1, FORWARD_PTR
+        LDI R2, EARLY_PTR
+        LDI R3, ZERO_PTR
+        HALT
+FORWARD_PTR
+        .FILL FORWARD_VALUE
+ZERO_PTR
+        .FILL ZERO_VALUE
+EARLY_VALUE
+        .FILL x8000
+FORWARD_VALUE
+        .FILL x1234
+ZERO_VALUE
+        .FILL x0000
+        .END

@@ -28,10 +28,16 @@ STR_ASM := $(wildcard programs/str/*.asm)
 STR_HEX := $(STR_ASM:.asm=.hex)
 JUMP_ASM := $(wildcard programs/jump/*.asm)
 JUMP_HEX := $(JUMP_ASM:.asm=.hex)
+LDI_ASM := $(wildcard programs/ldi/*.asm)
+LDI_HEX := $(LDI_ASM:.asm=.hex)
+STI_ASM := $(wildcard programs/sti/*.asm)
+STI_HEX := $(STI_ASM:.asm=.hex)
+TRAP_ASM := $(wildcard programs/trap/*.asm)
+TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr assemble wave clean
+.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector assemble wave clean
 
-test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr
+test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -78,7 +84,19 @@ test-jsr: $(BUILD)/lc3_jsr_tb.vvp $(JUMP_HEX)
 test-jsrr: $(BUILD)/lc3_jsrr_tb.vvp $(JUMP_HEX)
 	@$(RUN_VVP) $<
 
-assemble: $(ADD_HEX) $(AND_HEX) $(NOT_HEX) $(BR_HEX) $(LEA_HEX) $(LD_HEX) $(ST_HEX) $(LDR_HEX) $(STR_HEX) $(JUMP_HEX)
+test-ldi: $(BUILD)/lc3_ldi_tb.vvp $(LDI_HEX)
+	@$(RUN_VVP) $<
+
+test-sti: $(BUILD)/lc3_sti_tb.vvp $(STI_HEX)
+	@$(RUN_VVP) $<
+
+test-trap: $(BUILD)/lc3_trap_tb.vvp $(TRAP_HEX)
+	@$(RUN_VVP) $<
+
+test-trap-vector: $(BUILD)/lc3_trap_vector_tb.vvp $(TRAP_HEX)
+	@$(RUN_VVP) $<
+
+assemble: $(ADD_HEX) $(AND_HEX) $(NOT_HEX) $(BR_HEX) $(LEA_HEX) $(LD_HEX) $(ST_HEX) $(LDR_HEX) $(STR_HEX) $(JUMP_HEX) $(LDI_HEX) $(STI_HEX) $(TRAP_HEX)
 
 $(BUILD)/lc3_core_tb.vvp: $(RTL) tb/lc3_core_tb.sv tb/tb_helpers.svh programs/fetch_smoke.hex
 	@mkdir -p $(BUILD)
@@ -140,6 +158,22 @@ $(BUILD)/lc3_jsrr_tb.vvp: $(RTL) tb/lc3_jump_tb.sv tb/tb_helpers.svh $(JUMP_HEX)
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -s lc3_jsrr_tb -o $@ tb/lc3_jump_tb.sv $(RTL)
 
+$(BUILD)/lc3_ldi_tb.vvp: $(RTL) tb/lc3_ldi_tb.sv tb/tb_helpers.svh $(LDI_HEX)
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_ldi_tb.sv $(RTL)
+
+$(BUILD)/lc3_sti_tb.vvp: $(RTL) tb/lc3_sti_tb.sv tb/tb_helpers.svh $(STI_HEX)
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_sti_tb.sv $(RTL)
+
+$(BUILD)/lc3_trap_tb.vvp: $(RTL) tb/lc3_trap_tb.sv tb/tb_helpers.svh $(TRAP_HEX)
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -s lc3_trap_tb -o $@ tb/lc3_trap_tb.sv $(RTL)
+
+$(BUILD)/lc3_trap_vector_tb.vvp: $(RTL) tb/lc3_trap_tb.sv tb/tb_helpers.svh $(TRAP_HEX)
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -s lc3_trap_vector_tb -o $@ tb/lc3_trap_tb.sv $(RTL)
+
 programs/%.obj: programs/%.asm tools/PennSim.jar
 	@$(PENNSIM_AS) $< >/dev/null
 
@@ -151,4 +185,4 @@ wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex
+	rm -rf $(BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex

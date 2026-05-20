@@ -84,6 +84,14 @@ make test-jsr
 make test-jsrr
 ```
 
+The indirect memory tests cover `LDI` and `STI` with forward and backward
+pointer references:
+
+```sh
+make test-ldi
+make test-sti
+```
+
 The default test target stays on the passing fetch smoke test:
 
 ```sh

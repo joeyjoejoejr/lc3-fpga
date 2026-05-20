@@ -12,9 +12,8 @@ module lc3_core (
   output logic [15:0] pc,
   output logic [15:0] ir
 );
-  typedef enum logic [3:0] {
+  typedef enum logic [4:0] {
     STATE_FETCH,
-    STATE_FETCH_WAIT,
     STATE_LATCH_IR,
     STATE_DECODE,
     STATE_EXEC_ALU,
@@ -27,6 +26,8 @@ module lc3_core (
     STATE_WRITE_STORE,
     STATE_EXEC_JMP,
     STATE_EXEC_JSR,
+    STATE_FETCH_INDIRECT_PTR,
+    STATE_EXEC_TRAP,
     STATE_HALT
   } state_t;
 
@@ -39,10 +40,13 @@ module lc3_core (
   localparam logic[3:0] OP_LDR = 4'b0110;
   localparam logic[3:0] OP_STR = 4'b0111;
   localparam logic[3:0] OP_NOT = 4'b1001;
+  localparam logic[3:0] OP_LDI = 4'b1010;
+  localparam logic[3:0] OP_STI = 4'b1011;
   localparam logic[3:0] OP_JMP = 4'b1100;
   localparam logic[3:0] OP_LEA = 4'b1110;
+  localparam logic[3:0] OP_TRAP = 4'b1111;
 
-  state_t state;
+  state_t state, return_state;
   logic [15:0] regs [0:7];
   logic n;
   logic z;
@@ -74,6 +78,8 @@ module lc3_core (
   logic [15:0] offset6;
   logic [15:0] abs_addr;
 
+  logic [15:0] trap_vec;
+
   logic [15:0] add_rhs;
   logic [15:0] add_result;
 
@@ -104,6 +110,8 @@ module lc3_core (
 
   assign offset6 = {{10{ir[5]}}, ir[5:0]};
   assign abs_addr = regs[br] + offset6;
+
+  assign trap_vec = {8'h00, ir[7:0]};
 
   // ADD
   assign add_rhs = is_imm ? imm5 : regs[sr2];
@@ -146,14 +154,14 @@ module lc3_core (
       mem_addr <= 16'h0000;
       mem_wdata <= 16'h0000;
       mem_we <= 1'b0;
+      return_state <= STATE_HALT;
     end else begin
       case (state)
         STATE_FETCH: begin
           mem_addr <= pc;
-          state <= STATE_FETCH_WAIT;
+          return_state <= STATE_LATCH_IR;
+          state <= STATE_MEM_WAIT;
         end
-
-        STATE_FETCH_WAIT: state <= STATE_LATCH_IR;
 
         STATE_LATCH_IR: begin
           ir <= mem_rdata;
@@ -168,8 +176,10 @@ module lc3_core (
             OP_LEA: state <= STATE_EXEC_LEA;
             OP_LD, OP_LDR: state <= STATE_FETCH_MEM;
             OP_ST, OP_STR: state <= STATE_EXEC_STORE;
+            OP_LDI, OP_STI: state <= STATE_FETCH_INDIRECT_PTR;
             OP_JMP: state <= STATE_EXEC_JMP;
             OP_JSR: state <= STATE_EXEC_JSR;
+            OP_TRAP: state <= STATE_FETCH_INDIRECT_PTR;
             default: state <= STATE_HALT;
           endcase
         end
@@ -193,11 +203,13 @@ module lc3_core (
 
         STATE_FETCH_MEM: begin
           if (opcode == OP_LD) mem_addr <= pc_offset_addr;
+          else if (opcode == OP_LDI) mem_addr <= mem_rdata;
           else mem_addr <= abs_addr;
+          return_state <= STATE_REG_WRITEBACK;
           state <= STATE_MEM_WAIT;
         end
 
-        STATE_MEM_WAIT: state <= STATE_REG_WRITEBACK;
+        STATE_MEM_WAIT: state <= return_state;
 
         STATE_REG_WRITEBACK: begin
           { n, z, p } <= flags_for(mem_rdata);
@@ -208,6 +220,7 @@ module lc3_core (
         STATE_EXEC_STORE: begin
           mem_wdata <= regs[sr];
           if (opcode == OP_ST) mem_addr <= pc_offset_addr;
+          else if (opcode == OP_STI) mem_addr <= mem_rdata;
           else mem_addr <= abs_addr;
           mem_we <= 1'b1;
           state <= STATE_WRITE_STORE;
@@ -227,6 +240,23 @@ module lc3_core (
           regs[7] <= pc;
           if(is_jsr) pc <= pc_offset_11_addr;
           else pc <= regs[br];
+          state <= STATE_FETCH;
+        end
+
+        STATE_FETCH_INDIRECT_PTR: begin
+          mem_addr <= pc_offset_addr;
+          if(opcode == OP_LDI) return_state <= STATE_FETCH_MEM;
+          else if(opcode == OP_TRAP) begin
+            mem_addr <= trap_vec;
+            return_state <= STATE_EXEC_TRAP;
+          end
+          else return_state <= STATE_EXEC_STORE;
+          state <= STATE_MEM_WAIT;
+        end
+
+        STATE_EXEC_TRAP: begin
+          regs[7] <= pc;
+          pc <= mem_rdata;
           state <= STATE_FETCH;
         end
 

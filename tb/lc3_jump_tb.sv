@@ -7,6 +7,8 @@ module lc3_jump_case #(
   parameter logic [15:0] EXP_R1 = 16'h0000,
   parameter logic [15:0] EXP_R2 = 16'h0000,
   parameter logic [15:0] EXP_R3 = 16'h0000,
+  parameter logic [15:0] EXP_R4 = 16'h0000,
+  parameter logic        CHECK_R4 = 1'b0,
   parameter logic [15:0] EXP_R7 = 16'h0000,
   parameter logic        CHECK_R7 = 1'b0,
   parameter logic        EXP_N = 1'b0,
@@ -63,15 +65,18 @@ module lc3_jump_case #(
         if (dut.regs[1] !== EXP_R1 ||
             dut.regs[2] !== EXP_R2 ||
             dut.regs[3] !== EXP_R3 ||
+            (CHECK_R4 && dut.regs[4] !== EXP_R4) ||
             (CHECK_R7 && dut.regs[7] !== EXP_R7) ||
             dut.n !== EXP_N ||
             dut.z !== EXP_Z ||
             dut.p !== EXP_P) begin
           $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, NAME);
-          $display("       actual   R1=%04h R2=%04h R3=%04h R7=%04h",
-                   dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[7]);
-          $display("       expected R1=%04h R2=%04h R3=%04h R7=%04h%s",
-                   EXP_R1, EXP_R2, EXP_R3, EXP_R7,
+          $display("       actual   R1=%04h R2=%04h R3=%04h R4=%04h R7=%04h",
+                   dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4], dut.regs[7]);
+          $display("       expected R1=%04h R2=%04h R3=%04h R4=%04h%s R7=%04h%s",
+                   EXP_R1, EXP_R2, EXP_R3, EXP_R4,
+                   CHECK_R4 ? "" : " (ignored)",
+                   EXP_R7,
                    CHECK_R7 ? "" : " (ignored)");
           print_cc("actual", dut.n, dut.z, dut.p);
           print_cc("expected", EXP_N, EXP_Z, EXP_P);
@@ -86,8 +91,8 @@ module lc3_jump_case #(
     if (!saw_halt) begin
       $display("%s[FAIL]%s %-14s CPU did not halt", TB_RED, TB_RESET, NAME);
       $display("       pc=%04h ir=%04h state=%0d", dut.pc, dut.ir, dut.state);
-      $display("       regs     R0=%04h R1=%04h R2=%04h R3=%04h R6=%04h R7=%04h",
-               dut.regs[0], dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[6], dut.regs[7]);
+      $display("       regs     R0=%04h R1=%04h R2=%04h R3=%04h R4=%04h R6=%04h R7=%04h",
+               dut.regs[0], dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4], dut.regs[6], dut.regs[7]);
       $display("       memory   addr=%04h rdata=%04h wdata=%04h we=%0b",
                mem_addr, mem_rdata, mem_wdata, mem_we);
       $fatal(1);
@@ -128,8 +133,8 @@ module lc3_jump_all_tb;
     .EXP_R1(16'h0001),
     .EXP_R2(16'h0002),
     .EXP_R3(16'h0000),
-    .EXP_R7(16'h3001),
-    .CHECK_R7(1'b1)
+    .EXP_R4(16'h3001),
+    .CHECK_R4(1'b1)
   ) jsr_smoke();
 
   lc3_jump_case #(
@@ -138,8 +143,8 @@ module lc3_jump_all_tb;
     .EXP_R1(16'h0001),
     .EXP_R2(16'h0002),
     .EXP_R3(16'h0000),
-    .EXP_R7(16'h3002),
-    .CHECK_R7(1'b1)
+    .EXP_R4(16'h3002),
+    .CHECK_R4(1'b1)
   ) jsrr_smoke();
 endmodule
 
@@ -199,8 +204,8 @@ module lc3_jsr_tb;
     .EXP_R1(16'h0001),
     .EXP_R2(16'h0002),
     .EXP_R3(16'h0000),
-    .EXP_R7(16'h3001),
-    .CHECK_R7(1'b1)
+    .EXP_R4(16'h3001),
+    .CHECK_R4(1'b1)
   ) jsr_smoke();
 endmodule
 
@@ -221,7 +226,7 @@ module lc3_jsrr_tb;
     .EXP_R1(16'h0001),
     .EXP_R2(16'h0002),
     .EXP_R3(16'h0000),
-    .EXP_R7(16'h3002),
-    .CHECK_R7(1'b1)
+    .EXP_R4(16'h3002),
+    .CHECK_R4(1'b1)
   ) jsrr_smoke();
 endmodule
