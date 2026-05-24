@@ -1,12 +1,26 @@
 IVERILOG ?= iverilog
 VVP ?= vvp
 RUN_VVP := scripts/run_vvp.sh
+YOSYS ?= yosys
+OPENFPGALOADER ?= openFPGALoader
+FPGA_TOOL_VENV ?= $(HOME)/.local/share/lc3-fpga/fpga-venv
+NEXTPNR_GOWIN ?= $(FPGA_TOOL_VENV)/bin/yowasp-nextpnr-himbaechel-gowin
+GOWIN_PACK ?= $(FPGA_TOOL_VENV)/bin/gowin_pack
+FPGA_TOP ?= lc3_top
+FPGA_FAMILY ?= gw2a
+FPGA_PACK_DEVICE ?= GW2A-18C
+FPGA_DEVICE ?= GW2AR-LV18QN88C8/I7
+FPGA_FREQ_MHZ ?= 27
+FPGA_CST ?= constraints/tangnano20k.cst
+FPGA_BUILD := sim/fpga
 IVERILOG_WARNINGS := -Wall -Wimplicit -Wportbind -Wsensitivity-entire-vector -Wsensitivity-entire-array -Winfloop -Wselect-range -Wno-timescale
 IVERILOG_FLAGS ?= -g2012 $(IVERILOG_WARNINGS)
 PENNSIM_AS := scripts/assemble_with_pennsim.sh
 OBJ_TO_HEX := scripts/lc3_obj_to_hex.py
 
 RTL := rtl/lc3_core.sv rtl/lc3_memory.sv
+MEMCTL_RTL := rtl/lc3_memory_controller.sv
+TOP_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL)
 BUILD := sim/build
 ADD_ASM := $(wildcard programs/add/*.asm)
 ADD_HEX := $(ADD_ASM:.asm=.hex)
@@ -34,10 +48,12 @@ STI_ASM := $(wildcard programs/sti/*.asm)
 STI_HEX := $(STI_ASM:.asm=.hex)
 TRAP_ASM := $(wildcard programs/trap/*.asm)
 TRAP_HEX := $(TRAP_ASM:.asm=.hex)
+TOP_ASM := $(wildcard programs/top/*.asm)
+TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector assemble wave clean
+.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-top assemble fpga-tools fpga-bitstream fpga-program fpga-flash wave clean
 
-test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector
+test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-top
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -96,7 +112,28 @@ test-trap: $(BUILD)/lc3_trap_tb.vvp $(TRAP_HEX)
 test-trap-vector: $(BUILD)/lc3_trap_vector_tb.vvp $(TRAP_HEX)
 	@$(RUN_VVP) $<
 
-assemble: $(ADD_HEX) $(AND_HEX) $(NOT_HEX) $(BR_HEX) $(LEA_HEX) $(LD_HEX) $(ST_HEX) $(LDR_HEX) $(STR_HEX) $(JUMP_HEX) $(LDI_HEX) $(STI_HEX) $(TRAP_HEX)
+test-memory-controller: $(BUILD)/lc3_memory_controller_tb.vvp
+	@$(RUN_VVP) $<
+
+test-top: $(BUILD)/lc3_top_tb.vvp $(TOP_HEX)
+	@$(RUN_VVP) $<
+
+assemble: $(ADD_HEX) $(AND_HEX) $(NOT_HEX) $(BR_HEX) $(LEA_HEX) $(LD_HEX) $(ST_HEX) $(LDR_HEX) $(STR_HEX) $(JUMP_HEX) $(LDI_HEX) $(STI_HEX) $(TRAP_HEX) $(TOP_HEX)
+
+fpga-tools:
+	@command -v $(YOSYS) >/dev/null || { echo "missing yosys; run: brew install yosys"; exit 1; }
+	@command -v $(OPENFPGALOADER) >/dev/null || { echo "missing openFPGALoader; run: brew install openfpgaloader"; exit 1; }
+	@test -x "$(NEXTPNR_GOWIN)" || { echo "missing $(NEXTPNR_GOWIN); install yowasp-nextpnr-himbaechel-gowin in $(FPGA_TOOL_VENV)"; exit 1; }
+	@test -x "$(GOWIN_PACK)" || { echo "missing $(GOWIN_PACK); install apycula in $(FPGA_TOOL_VENV)"; exit 1; }
+	@echo "FPGA tools found"
+
+fpga-bitstream: $(FPGA_BUILD)/$(FPGA_TOP).fs
+
+fpga-program: $(FPGA_BUILD)/$(FPGA_TOP).fs
+	$(OPENFPGALOADER) -b tangnano20k $<
+
+fpga-flash: $(FPGA_BUILD)/$(FPGA_TOP).fs
+	$(OPENFPGALOADER) -b tangnano20k -f $<
 
 $(BUILD)/lc3_core_tb.vvp: $(RTL) tb/lc3_core_tb.sv tb/tb_helpers.svh programs/fetch_smoke.hex
 	@mkdir -p $(BUILD)
@@ -174,6 +211,24 @@ $(BUILD)/lc3_trap_vector_tb.vvp: $(RTL) tb/lc3_trap_tb.sv tb/tb_helpers.svh $(TR
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -s lc3_trap_vector_tb -o $@ tb/lc3_trap_tb.sv $(RTL)
 
+$(BUILD)/lc3_memory_controller_tb.vvp: $(MEMCTL_RTL) tb/lc3_memory_controller_tb.sv tb/tb_helpers.svh
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_memory_controller_tb.sv $(MEMCTL_RTL)
+
+$(BUILD)/lc3_top_tb.vvp: $(TOP_RTL) tb/lc3_top_tb.sv tb/tb_helpers.svh $(TOP_HEX)
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_top_tb.sv $(TOP_RTL)
+
+$(FPGA_BUILD)/$(FPGA_TOP).json: $(TOP_RTL) $(TOP_HEX) $(FPGA_CST) | fpga-tools
+	@mkdir -p $(FPGA_BUILD)
+	$(YOSYS) -p "read_verilog -sv $(TOP_RTL); synth_gowin -family $(FPGA_FAMILY) -top $(FPGA_TOP) -json $@"
+
+$(FPGA_BUILD)/$(FPGA_TOP)_pnr.json: $(FPGA_BUILD)/$(FPGA_TOP).json $(FPGA_CST) | fpga-tools
+	$(NEXTPNR_GOWIN) --json $< --write $@ --device $(FPGA_DEVICE) --vopt family=$(FPGA_PACK_DEVICE) --vopt cst=$(FPGA_CST) --freq $(FPGA_FREQ_MHZ)
+
+$(FPGA_BUILD)/$(FPGA_TOP).fs: $(FPGA_BUILD)/$(FPGA_TOP)_pnr.json | fpga-tools
+	$(GOWIN_PACK) -d $(FPGA_PACK_DEVICE) -o $@ $<
+
 programs/%.obj: programs/%.asm tools/PennSim.jar
 	@$(PENNSIM_AS) $< >/dev/null
 
@@ -185,4 +240,4 @@ wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex
+	rm -rf $(BUILD) $(FPGA_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex
