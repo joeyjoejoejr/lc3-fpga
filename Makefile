@@ -11,7 +11,7 @@ FPGA_FAMILY ?= gw2a
 FPGA_PACK_DEVICE ?= GW2A-18C
 FPGA_DEVICE ?= GW2AR-LV18QN88C8/I7
 FPGA_FREQ_MHZ ?= 27
-FPGA_CST ?= constraints/tangnano20k.cst
+FPGA_CST ?= constraints/lc3_lcd.cst
 FPGA_BUILD := sim/fpga
 TX_FPGA_TOP ?= tx_top
 TX_FPGA_CST ?= constraints/tx_test.cst
@@ -23,13 +23,16 @@ IVERILOG_WARNINGS := -Wall -Wimplicit -Wportbind -Wsensitivity-entire-vector -Ws
 IVERILOG_FLAGS ?= -g2012 $(IVERILOG_WARNINGS)
 PENNSIM_AS := scripts/assemble_with_pennsim.sh
 OBJ_TO_HEX := scripts/lc3_obj_to_hex.py
+FPGA_INIT_HEX ?= programs/top/framebuffer_smoke.hex
 
 RTL := rtl/lc3_core.sv rtl/lc3_memory.sv
 MEMCTL_RTL := rtl/lc3_memory_controller.sv
-TOP_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL)
+TOP_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
+TOP_SIM_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
 UART_TX_RTL := rtl/uart_tx.sv
 TX_TOP_RTL := rtl/tx_top.sv $(UART_TX_RTL)
 LCD_COLOR_RTL := rtl/lcd_color_top.sv rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lcd_color_bars.sv
+FRAMEBUFFER_READER_RTL := $(wildcard rtl/lc3_framebuffer_reader.sv)
 BUILD := sim/build
 ADD_ASM := $(wildcard programs/add/*.asm)
 ADD_HEX := $(ADD_ASM:.asm=.hex)
@@ -60,9 +63,9 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-top test-uart-tx assemble fpga-tools fpga-bitstream fpga-program fpga-flash tx-bitstream tx-program tx-flash lcd-color-bitstream lcd-color-program lcd-color-flash wave clean
+.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-framebuffer-reader test-top test-uart-tx assemble fpga-tools fpga-bitstream fpga-program fpga-flash tx-bitstream tx-program tx-flash lcd-color-bitstream lcd-color-program lcd-color-flash wave clean
 
-test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-top
+test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-framebuffer-reader test-top test-uart-tx
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -122,6 +125,9 @@ test-trap-vector: $(BUILD)/lc3_trap_vector_tb.vvp $(TRAP_HEX)
 	@$(RUN_VVP) $<
 
 test-memory-controller: $(BUILD)/lc3_memory_controller_tb.vvp
+	@$(RUN_VVP) $<
+
+test-framebuffer-reader: $(BUILD)/lc3_framebuffer_reader_tb.vvp
 	@$(RUN_VVP) $<
 
 test-top: $(BUILD)/lc3_top_tb.vvp $(TOP_HEX)
@@ -243,15 +249,22 @@ $(BUILD)/lc3_memory_controller_tb.vvp: $(MEMCTL_RTL) tb/lc3_memory_controller_tb
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_memory_controller_tb.sv $(MEMCTL_RTL)
 
-$(BUILD)/lc3_top_tb.vvp: $(TOP_RTL) tb/lc3_top_tb.sv tb/tb_helpers.svh $(TOP_HEX)
+$(BUILD)/lc3_framebuffer_reader_tb.vvp: $(MEMCTL_RTL) $(FRAMEBUFFER_READER_RTL) tb/lc3_framebuffer_reader_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)
-	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_top_tb.sv $(TOP_RTL)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_framebuffer_reader_tb.sv $(MEMCTL_RTL) $(FRAMEBUFFER_READER_RTL)
+
+$(BUILD)/lc3_top_tb.vvp: $(TOP_SIM_RTL) tb/lc3_top_tb.sv tb/tb_helpers.svh $(FPGA_INIT_HEX)
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -DSIMULATION -I tb -o $@ tb/lc3_top_tb.sv $(TOP_SIM_RTL)
 
 $(BUILD)/uart_tx_tb.vvp: $(UART_TX_RTL) tb/uart_tx_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/uart_tx_tb.sv $(UART_TX_RTL)
 
-$(FPGA_BUILD)/$(FPGA_TOP).json: $(TOP_RTL) $(TOP_HEX) $(FPGA_CST) | fpga-tools
+programs/top/framebuffer_smoke.hex: scripts/make_framebuffer_smoke_hex.py
+	@python3 $<
+
+$(FPGA_BUILD)/$(FPGA_TOP).json: $(TOP_RTL) $(TOP_HEX) $(FPGA_INIT_HEX) $(FPGA_CST) | fpga-tools
 	@mkdir -p $(FPGA_BUILD)
 	$(YOSYS) -p "read_verilog -sv $(TOP_RTL); synth_gowin -family $(FPGA_FAMILY) -top $(FPGA_TOP) -json $@"
 

@@ -4,7 +4,11 @@
 module lc3_top_tb;
   logic clk = 1'b0;
   logic reset_button = 1'b1;
-  logic [5:0] led;
+  logic [4:0] lcd_b;
+  logic [5:0] lcd_g;
+  logic [4:0] lcd_r;
+  logic lcd_en;
+  logic lcd_clk;
   integer cycle;
 
   always #5 clk = ~clk;
@@ -12,25 +16,29 @@ module lc3_top_tb;
   lc3_top dut (
     .clk(clk),
     .reset_button(reset_button),
-    .led(led)
+    .lcd_b(lcd_b),
+    .lcd_g(lcd_g),
+    .lcd_r(lcd_r),
+    .lcd_en(lcd_en),
+    .lcd_clk(lcd_clk)
   );
 
   initial begin
     repeat (2) @(posedge clk);
     reset_button <= 1'b0;
 
-    for (cycle = 0; cycle < 120; cycle = cycle + 1) begin
+    for (cycle = 0; cycle < 20000; cycle = cycle + 1) begin
       @(posedge clk);
 
-      if (led === ~6'b000001) begin
-        print_case_pass("top_led");
+      if (lcd_en && {lcd_r, lcd_g, lcd_b} !== 16'h0000) begin
+        print_case_pass("top_lcd");
         $finish;
       end
     end
 
-    $display("%s[FAIL]%s %-14s LEDs did not show expected value", TB_RED, TB_RESET, "top_led");
-    $display("       actual led pins %06b", led);
-    $display("       expected        %06b", ~6'b000001);
+    $display("%s[FAIL]%s %-14s LCD did not produce a non-black enabled pixel", TB_RED, TB_RESET, "top_lcd");
+    $display("       lcd_en %0b", lcd_en);
+    $display("       rgb565 %04h", {lcd_r, lcd_g, lcd_b});
     $fatal(1);
   end
 endmodule

@@ -12,7 +12,6 @@ module lc3_memory_controller_tb;
   logic        video_enabled;
   logic [13:0] video_addr;
   logic [15:0] video_pixel;
-  logic [5:0]  led_value;
 
   always #5 clk = ~clk;
 
@@ -22,10 +21,10 @@ module lc3_memory_controller_tb;
     .cpu_rdata(cpu_rdata),
     .cpu_wdata(cpu_wdata),
     .cpu_we(cpu_we),
+    .video_clk(clk),
     .video_enabled(video_enabled),
     .video_addr(video_addr),
-    .video_pixel(video_pixel),
-    .led_value(led_value)
+    .video_pixel(video_pixel)
   );
 
   task automatic write_word(input logic [15:0] addr, input logic [15:0] data);
@@ -97,16 +96,6 @@ module lc3_memory_controller_tb;
       $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, "device_stub");
       $display("       actual   %04h", cpu_rdata);
       $display("       expected %04h", 16'h0000);
-      $fatal(1);
-    end
-
-    write_word(16'hFE10, 16'h0035);
-    @(posedge clk);
-
-    if (led_value !== 6'h35) begin
-      $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, "led_reg");
-      $display("       actual   %02h", led_value);
-      $display("       expected %02h", 6'h35);
       $fatal(1);
     end
 
