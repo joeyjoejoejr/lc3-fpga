@@ -1,6 +1,10 @@
 `timescale 1ns/1ps
 
-module lc3_top (
+module lc3_top #(
+  parameter INIT_FILE = "programs/top/framebuffer_cpu_smoke.hex",
+  parameter FRAMEBUFFER_INIT_FILE = "",
+  parameter int RAM_WORDS = 16'h3100
+) (
   input  logic       clk,
   input  logic       reset_button,
 
@@ -41,8 +45,9 @@ module lc3_top (
   );
 
   lc3_memory_controller #(
-    .FRAMEBUFFER_INIT_FILE("programs/top/framebuffer_smoke.hex"),
-    .RAM_WORDS(16'h1000)
+    .INIT_FILE(INIT_FILE),
+    .FRAMEBUFFER_INIT_FILE(FRAMEBUFFER_INIT_FILE),
+    .RAM_WORDS(RAM_WORDS)
   ) memory_controller (
     .clk(clk),
     .cpu_addr(mem_addr),

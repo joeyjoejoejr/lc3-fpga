@@ -23,7 +23,7 @@ IVERILOG_WARNINGS := -Wall -Wimplicit -Wportbind -Wsensitivity-entire-vector -Ws
 IVERILOG_FLAGS ?= -g2012 $(IVERILOG_WARNINGS)
 PENNSIM_AS := scripts/assemble_with_pennsim.sh
 OBJ_TO_HEX := scripts/lc3_obj_to_hex.py
-FPGA_INIT_HEX ?= programs/top/framebuffer_smoke.hex
+FPGA_INIT_HEX ?= programs/top/framebuffer_cpu_smoke.hex
 
 RTL := rtl/lc3_core.sv rtl/lc3_memory.sv
 MEMCTL_RTL := rtl/lc3_memory_controller.sv
