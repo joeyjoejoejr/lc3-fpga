@@ -50,6 +50,7 @@ module lc3_top #(
     .RAM_WORDS(RAM_WORDS)
   ) memory_controller (
     .clk(clk),
+    .reset(reset),
     .cpu_addr(mem_addr),
     .cpu_rdata(mem_rdata),
     .cpu_wdata(mem_wdata),

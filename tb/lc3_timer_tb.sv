@@ -1,7 +1,14 @@
 `timescale 1ns/1ps
 `include "tb_helpers.svh"
 
-module lc3_memory_controller_tb;
+module lc3_timer_tb;
+  localparam logic [15:0] TMR_ADDR = 16'hFE08;
+  localparam logic [15:0] TMI_ADDR = 16'hFE0A;
+
+  // The LC-3 extended timer treats TMI as milliseconds. At the Tang Nano
+  // 20K's 27 MHz clock, one millisecond is 27,000 system-clock cycles.
+  localparam int CYCLES_PER_MS = 27000;
+
   logic clk = 1'b0;
   logic reset;
 
@@ -36,6 +43,7 @@ module lc3_memory_controller_tb;
       cpu_we <= 1'b1;
       @(posedge clk);
       cpu_we <= 1'b0;
+      @(posedge clk);
     end
   endtask
 
@@ -57,7 +65,14 @@ module lc3_memory_controller_tb;
         $display("       expected %04h", expected);
         $fatal(1);
       end
+
+      cpu_addr <= 16'h0000;
+      @(posedge clk);
     end
+  endtask
+
+  task automatic wait_cycles(input int cycles);
+    repeat (cycles) @(posedge clk);
   endtask
 
   initial begin
@@ -72,39 +87,33 @@ module lc3_memory_controller_tb;
     reset = 1'b0;
     repeat (2) @(posedge clk);
 
-    write_word(16'h3000, 16'h1234);
-    read_expect("ram_readwrite", 16'h3000, 16'h1234);
+    read_expect("timer_initial", TMR_ADDR, 16'h0000);
 
-    write_word(16'hBFFF, 16'hABCD);
-    read_expect("ram_top", 16'hBFFF, 16'hABCD);
+    write_word(TMI_ADDR, 16'd1);
 
-    write_word(16'hC000, 16'h7C00);
-    read_expect("fb_as_ram", 16'hC000, 16'h7C00);
+    // Writing TMI arms/restarts the timer, but should not immediately set TMR.
+    read_expect("timer_not_immediate", TMR_ADDR, 16'h0000);
 
-    video_addr <= 14'h0000;
-    video_enabled <= 1'b1;
-    @(posedge clk);
-    @(posedge clk);
+    wait_cycles(CYCLES_PER_MS / 2);
+    read_expect("timer_not_early", TMR_ADDR, 16'h0000);
 
-    if (video_pixel !== 16'h7C00) begin
-      $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, "video_read");
-      $display("       actual   %04h", video_pixel);
-      $display("       expected %04h", 16'h7C00);
-      $fatal(1);
-    end
+    wait_cycles((CYCLES_PER_MS / 2) + 8);
+    read_expect("timer_first_tick", TMR_ADDR, 16'h8000);
 
-    cpu_addr <= 16'hFE00;
-    @(posedge clk);
-    @(posedge clk);
+    // Reading TMR clears the ready bit.
+    read_expect("timer_read_clears", TMR_ADDR, 16'h0000);
 
-    if (cpu_rdata !== 16'h0000) begin
-      $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, "device_stub");
-      $display("       actual   %04h", cpu_rdata);
-      $display("       expected %04h", 16'h0000);
-      $fatal(1);
-    end
+    // The timer keeps running after the clear without rewriting TMI.
+    wait_cycles(CYCLES_PER_MS);
+    read_expect("timer_repeats", TMR_ADDR, 16'h8000);
+    read_expect("timer_second_clear", TMR_ADDR, 16'h0000);
 
-    print_case_pass("memory_ctl");
+    // A zero interval disables the timer and clears any pending tick.
+    write_word(TMI_ADDR, 16'd0);
+    wait_cycles(CYCLES_PER_MS + 8);
+    read_expect("timer_disabled", TMR_ADDR, 16'h0000);
+
+    print_case_pass("timer");
     $finish;
   end
 endmodule

@@ -29,6 +29,7 @@ module lc3_framebuffer_reader_tb;
 
   lc3_memory_controller memory (
     .clk(clk),
+    .reset(reset),
     .cpu_addr(cpu_addr),
     .cpu_rdata(cpu_rdata),
     .cpu_wdata(cpu_wdata),
