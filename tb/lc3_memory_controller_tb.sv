@@ -29,7 +29,10 @@ module lc3_memory_controller_tb;
 	    .video_pixel(video_pixel),
 	    .keyboard_valid(1'b0),
 	    .keyboard_data(8'h00),
-	    .keyboard_ready()
+	    .keyboard_ready(),
+	    .display_valid(),
+	    .display_data(),
+	    .display_ready(1'b1)
 	  );
 
   task automatic write_word(input logic [15:0] addr, input logic [15:0] data);

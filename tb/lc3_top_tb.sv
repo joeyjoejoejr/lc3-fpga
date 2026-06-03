@@ -9,13 +9,19 @@ module lc3_top_tb;
   logic [4:0] lcd_r;
   logic lcd_en;
   logic lcd_clk;
+  logic rx;
+  logic tx;
   integer cycle;
 
   always #5 clk = ~clk;
 
-  lc3_top dut (
+  lc3_top #(
+    .INIT_FILE("programs/top/framebuffer_cpu_smoke.hex")
+  ) dut (
     .clk(clk),
     .reset_button(reset_button),
+    .rx(rx),
+    .tx(tx),
     .lcd_b(lcd_b),
     .lcd_g(lcd_g),
     .lcd_r(lcd_r),
@@ -24,6 +30,7 @@ module lc3_top_tb;
   );
 
   initial begin
+    rx = 1'b1;
     repeat (2) @(posedge clk);
     reset_button <= 1'b0;
 

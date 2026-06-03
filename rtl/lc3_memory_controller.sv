@@ -21,7 +21,12 @@ module lc3_memory_controller #(
   // Keyboard
   input  logic        keyboard_valid,
   input  logic [7:0]  keyboard_data,
-  output logic        keyboard_ready
+  output logic        keyboard_ready,
+
+  // Display / console
+  output logic        display_valid,
+  output logic [7:0]  display_data,
+  input  logic        display_ready
 );
   localparam logic [15:0] FRAMEBUFFER_START = 16'hC000;
   localparam logic [15:0] FRAMEBUFFER_END   = 16'hFDFF;
@@ -32,6 +37,8 @@ module lc3_memory_controller #(
   // Hardware IO
   localparam logic [15:0] KBSR_ADDR         = 16'hFE00;
   localparam logic [15:0] KBDR_ADDR         = 16'hFE02;
+  localparam logic [15:0] DSR_ADDR          = 16'hFE04;
+  localparam logic [15:0] DDR_ADDR          = 16'hFE06;
   localparam logic [15:0] TMR_ADDR          = 16'hFE08;
   localparam logic [15:0] TMI_ADDR          = 16'hFE0A;
 
@@ -100,11 +107,14 @@ module lc3_memory_controller #(
     tmr_read <= 1'b0;
     tmi_we <= 1'b0;
     kbdr_read <= 1'b0;
+    display_valid <= 1'b0;
 
     if(reset) begin
       tmr_read <= 1'b0;
       tmi_we <= 1'b0;
       kbdr_read <= 1'b0;
+      display_valid <= 1'b0;
+      display_data <= 8'h00;
       cpu_rdata <= 16'd0;
     end
     else begin
@@ -128,6 +138,15 @@ module lc3_memory_controller #(
             if(!cpu_we) begin
               kbdr_read <= 1'b1;
               cpu_rdata <= kbdr_value;
+            end
+          end
+          DSR_ADDR: begin
+            if(!cpu_we) cpu_rdata <= display_ready ? 16'h8000 : 16'h0000;
+          end
+          DDR_ADDR: begin
+            if(cpu_we && display_ready) begin
+              display_data <= cpu_wdata[7:0];
+              display_valid <= 1'b1;
             end
           end
           TMR_ADDR: begin

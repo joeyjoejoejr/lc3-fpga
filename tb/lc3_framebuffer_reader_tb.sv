@@ -40,7 +40,10 @@ module lc3_framebuffer_reader_tb;
 	    .video_clk(clk),
 	    .keyboard_valid(1'b0),
 	    .keyboard_data(8'h00),
-	    .keyboard_ready()
+	    .keyboard_ready(),
+	    .display_valid(),
+	    .display_data(),
+	    .display_ready(1'b1)
 	  );
 
   // This module is intentionally not implemented yet. This test defines the

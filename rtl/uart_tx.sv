@@ -15,10 +15,11 @@ module uart_tx #(parameter DELAY_FRAMES = 234)( // 27MHz/115200baude
     STATE_STOP_BIT
   } state_t;
 
-  logic [1:0] state;
-  logic [7:0] tx_counter;
-  logic [2:0] tx_bit;
-  logic [7:0] data_reg;
+  logic [1:0] state = STATE_IDLE;
+  logic [7:0] tx_counter = 8'd0;
+  logic [2:0] tx_bit = 3'd0;
+  logic [7:0] data_reg = 8'h00;
+  initial tx = 1'b1;
 
   assign ready = state == STATE_IDLE;
 

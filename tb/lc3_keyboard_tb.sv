@@ -34,10 +34,13 @@ module lc3_keyboard_tb;
     .video_enabled(video_enabled),
     .video_addr(video_addr),
     .video_pixel(video_pixel),
-    .keyboard_valid(keyboard_valid),
-    .keyboard_ready(keyboard_ready),
-    .keyboard_data(keyboard_data)
-  );
+	    .keyboard_valid(keyboard_valid),
+	    .keyboard_ready(keyboard_ready),
+	    .keyboard_data(keyboard_data),
+	    .display_valid(),
+	    .display_data(),
+	    .display_ready(1'b1)
+	  );
 
   task automatic write_word(input logic [15:0] addr, input logic [15:0] data);
     begin

@@ -16,6 +16,12 @@ FPGA_BUILD := sim/fpga
 TX_FPGA_TOP ?= tx_top
 TX_FPGA_CST ?= constraints/tx_test.cst
 TX_FPGA_BUILD := sim/fpga-tx
+ECHO_FPGA_TOP ?= uart_echo_top
+ECHO_FPGA_CST ?= constraints/uart_echo.cst
+ECHO_FPGA_BUILD := sim/fpga-echo
+RX_PROBE_FPGA_TOP ?= uart_rx_probe_top
+RX_PROBE_FPGA_CST ?= constraints/uart_rx_probe.cst
+RX_PROBE_FPGA_BUILD := sim/fpga-rx-probe
 LCD_COLOR_TOP ?= lcd_color_top
 LCD_COLOR_CST ?= constraints/lcd_color_demo.cst
 LCD_COLOR_BUILD := sim/fpga-lcd-color
@@ -23,18 +29,19 @@ IVERILOG_WARNINGS := -Wall -Wimplicit -Wportbind -Wsensitivity-entire-vector -Ws
 IVERILOG_FLAGS ?= -g2012 $(IVERILOG_WARNINGS)
 PENNSIM_AS := scripts/assemble_with_pennsim.sh
 OBJ_TO_HEX := scripts/lc3_obj_to_hex.py
-FPGA_INIT_HEX ?= programs/top/framebuffer_cpu_smoke.hex
+FPGA_INIT_HEX ?= programs/top/lc3_uart_echo.hex
 
 RTL := rtl/lc3_core.sv rtl/lc3_memory.sv
 TIMER_RTL := rtl/lc3_timer.sv
 KEYBOARD_RTL := rtl/lc3_keyboard.sv
 MEMCTL_RTL := rtl/lc3_memory_controller.sv $(TIMER_RTL) $(KEYBOARD_RTL)
-TOP_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
-TOP_SIM_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
 UART_TX_RTL := rtl/uart_tx.sv
 UART_RX_RTL := rtl/uart_rx.sv
+TOP_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) $(UART_RX_RTL) $(UART_TX_RTL) rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
+TOP_SIM_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) $(UART_RX_RTL) $(UART_TX_RTL) rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
 TX_TOP_RTL := rtl/tx_top.sv $(UART_TX_RTL)
 UART_ECHO_TOP_RTL := rtl/uart_echo_top.sv $(UART_RX_RTL) $(UART_TX_RTL)
+UART_RX_PROBE_TOP_RTL := rtl/uart_rx_probe_top.sv
 LCD_COLOR_RTL := rtl/lcd_color_top.sv rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lcd_color_bars.sv
 FRAMEBUFFER_READER_RTL := $(wildcard rtl/lc3_framebuffer_reader.sv)
 BUILD := sim/build
@@ -67,9 +74,9 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash tx-bitstream tx-program tx-flash lcd-color-bitstream lcd-color-program lcd-color-flash wave clean
+.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash wave clean
 
-test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-top test-uart-tx
+test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-top test-uart-tx test-uart-rx
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -172,6 +179,22 @@ tx-program: $(TX_FPGA_BUILD)/$(TX_FPGA_TOP).fs
 	$(OPENFPGALOADER) -b tangnano20k $<
 
 tx-flash: $(TX_FPGA_BUILD)/$(TX_FPGA_TOP).fs
+	$(OPENFPGALOADER) -b tangnano20k -f $<
+
+echo-bitstream: $(ECHO_FPGA_BUILD)/$(ECHO_FPGA_TOP).fs
+
+echo-program: $(ECHO_FPGA_BUILD)/$(ECHO_FPGA_TOP).fs
+	$(OPENFPGALOADER) -b tangnano20k $<
+
+echo-flash: $(ECHO_FPGA_BUILD)/$(ECHO_FPGA_TOP).fs
+	$(OPENFPGALOADER) -b tangnano20k -f $<
+
+rx-probe-bitstream: $(RX_PROBE_FPGA_BUILD)/$(RX_PROBE_FPGA_TOP).fs
+
+rx-probe-program: $(RX_PROBE_FPGA_BUILD)/$(RX_PROBE_FPGA_TOP).fs
+	$(OPENFPGALOADER) -b tangnano20k $<
+
+rx-probe-flash: $(RX_PROBE_FPGA_BUILD)/$(RX_PROBE_FPGA_TOP).fs
 	$(OPENFPGALOADER) -b tangnano20k -f $<
 
 lcd-color-bitstream: $(LCD_COLOR_BUILD)/$(LCD_COLOR_TOP).fs
@@ -309,6 +332,26 @@ $(TX_FPGA_BUILD)/$(TX_FPGA_TOP)_pnr.json: $(TX_FPGA_BUILD)/$(TX_FPGA_TOP).json $
 $(TX_FPGA_BUILD)/$(TX_FPGA_TOP).fs: $(TX_FPGA_BUILD)/$(TX_FPGA_TOP)_pnr.json | fpga-tools
 	$(GOWIN_PACK) -d $(FPGA_PACK_DEVICE) -o $@ $<
 
+$(ECHO_FPGA_BUILD)/$(ECHO_FPGA_TOP).json: $(UART_ECHO_TOP_RTL) $(ECHO_FPGA_CST) | fpga-tools
+	@mkdir -p $(ECHO_FPGA_BUILD)
+	$(YOSYS) -p "read_verilog -sv $(UART_ECHO_TOP_RTL); synth_gowin -family $(FPGA_FAMILY) -top $(ECHO_FPGA_TOP) -json $@"
+
+$(ECHO_FPGA_BUILD)/$(ECHO_FPGA_TOP)_pnr.json: $(ECHO_FPGA_BUILD)/$(ECHO_FPGA_TOP).json $(ECHO_FPGA_CST) | fpga-tools
+	$(NEXTPNR_GOWIN) --json $< --write $@ --device $(FPGA_DEVICE) --vopt family=$(FPGA_PACK_DEVICE) --vopt cst=$(ECHO_FPGA_CST) --freq $(FPGA_FREQ_MHZ)
+
+$(ECHO_FPGA_BUILD)/$(ECHO_FPGA_TOP).fs: $(ECHO_FPGA_BUILD)/$(ECHO_FPGA_TOP)_pnr.json | fpga-tools
+	$(GOWIN_PACK) -d $(FPGA_PACK_DEVICE) -o $@ $<
+
+$(RX_PROBE_FPGA_BUILD)/$(RX_PROBE_FPGA_TOP).json: $(UART_RX_PROBE_TOP_RTL) $(RX_PROBE_FPGA_CST) | fpga-tools
+	@mkdir -p $(RX_PROBE_FPGA_BUILD)
+	$(YOSYS) -p "read_verilog -sv $(UART_RX_PROBE_TOP_RTL); synth_gowin -family $(FPGA_FAMILY) -top $(RX_PROBE_FPGA_TOP) -json $@"
+
+$(RX_PROBE_FPGA_BUILD)/$(RX_PROBE_FPGA_TOP)_pnr.json: $(RX_PROBE_FPGA_BUILD)/$(RX_PROBE_FPGA_TOP).json $(RX_PROBE_FPGA_CST) | fpga-tools
+	$(NEXTPNR_GOWIN) --json $< --write $@ --device $(FPGA_DEVICE) --vopt family=$(FPGA_PACK_DEVICE) --vopt cst=$(RX_PROBE_FPGA_CST) --freq $(FPGA_FREQ_MHZ)
+
+$(RX_PROBE_FPGA_BUILD)/$(RX_PROBE_FPGA_TOP).fs: $(RX_PROBE_FPGA_BUILD)/$(RX_PROBE_FPGA_TOP)_pnr.json | fpga-tools
+	$(GOWIN_PACK) -d $(FPGA_PACK_DEVICE) -o $@ $<
+
 $(LCD_COLOR_BUILD)/$(LCD_COLOR_TOP).json: $(LCD_COLOR_RTL) $(LCD_COLOR_CST) | fpga-tools
 	@mkdir -p $(LCD_COLOR_BUILD)
 	$(YOSYS) -p "read_verilog -sv $(LCD_COLOR_RTL); synth_gowin -family $(FPGA_FAMILY) -top $(LCD_COLOR_TOP) -json $@"
@@ -330,4 +373,4 @@ wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) $(FPGA_BUILD) $(TX_FPGA_BUILD) $(LCD_COLOR_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex
+	rm -rf $(BUILD) $(FPGA_BUILD) $(TX_FPGA_BUILD) $(ECHO_FPGA_BUILD) $(RX_PROBE_FPGA_BUILD) $(LCD_COLOR_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex

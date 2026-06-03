@@ -1,12 +1,14 @@
 `timescale 1ns/1ps
 
 module lc3_top #(
-  parameter INIT_FILE = "programs/top/framebuffer_cpu_smoke.hex",
+  parameter INIT_FILE = "programs/top/lc3_uart_echo.hex",
   parameter FRAMEBUFFER_INIT_FILE = "",
-  parameter int RAM_WORDS = 16'h3100
+  parameter int RAM_WORDS = 16'h3200
 ) (
   input  logic       clk,
   input  logic       reset_button,
+  input  logic       rx,
+  output logic       tx,
 
   // LCD
   output logic [4:0]lcd_b,
@@ -30,6 +32,12 @@ module lc3_top #(
   logic [8:0] lcd_x;
   logic [8:0] lcd_y;
   logic pll_lock;
+  logic uart_rx_valid;
+  logic [7:0] uart_rx_data;
+  logic keyboard_ready;
+  logic uart_tx_valid;
+  logic [7:0] uart_tx_data;
+  logic uart_tx_ready;
 
   assign reset = reset_button;
 
@@ -55,14 +63,34 @@ module lc3_top #(
     .cpu_rdata(mem_rdata),
     .cpu_wdata(mem_wdata),
     .cpu_we(mem_we),
-	    .video_clk(lcd_clk),
-	    .video_enabled(video_en),
-	    .video_addr(video_addr),
-	    .video_pixel(video_pixel),
-	    .keyboard_valid(1'b0),
-	    .keyboard_data(8'h00),
-	    .keyboard_ready()
-	  );
+    .video_clk(lcd_clk),
+    .video_enabled(video_en),
+    .video_addr(video_addr),
+    .video_pixel(video_pixel),
+    .keyboard_valid(uart_rx_valid),
+    .keyboard_data(uart_rx_data),
+    .keyboard_ready(keyboard_ready),
+    .display_valid(uart_tx_valid),
+    .display_data(uart_tx_data),
+    .display_ready(uart_tx_ready)
+  );
+
+  uart_rx keyboard_uart (
+    .clk(clk),
+    .reset(reset),
+    .rx(rx),
+    .valid(uart_rx_valid),
+    .data(uart_rx_data)
+  );
+
+  uart_tx console_uart (
+    .clk(clk),
+    .reset(reset),
+    .start(uart_tx_valid),
+    .data(uart_tx_data),
+    .tx(tx),
+    .ready(uart_tx_ready)
+  );
 
 `ifdef SIMULATION
   assign lcd_clk = clk;
