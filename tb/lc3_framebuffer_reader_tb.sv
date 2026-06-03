@@ -34,11 +34,14 @@ module lc3_framebuffer_reader_tb;
     .cpu_rdata(cpu_rdata),
     .cpu_wdata(cpu_wdata),
     .cpu_we(cpu_we),
-    .video_enabled(video_enabled),
-    .video_addr(video_addr),
-    .video_pixel(video_pixel),
-    .video_clk(clk)
-  );
+	    .video_enabled(video_enabled),
+	    .video_addr(video_addr),
+	    .video_pixel(video_pixel),
+	    .video_clk(clk),
+	    .keyboard_valid(1'b0),
+	    .keyboard_data(8'h00),
+	    .keyboard_ready()
+	  );
 
   // This module is intentionally not implemented yet. This test defines the
   // contract for the next step: map the LC-3 framebuffer onto the LCD pixels.

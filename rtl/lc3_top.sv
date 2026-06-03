@@ -55,11 +55,14 @@ module lc3_top #(
     .cpu_rdata(mem_rdata),
     .cpu_wdata(mem_wdata),
     .cpu_we(mem_we),
-    .video_clk(lcd_clk),
-    .video_enabled(video_en),
-    .video_addr(video_addr),
-    .video_pixel(video_pixel)
-  );
+	    .video_clk(lcd_clk),
+	    .video_enabled(video_en),
+	    .video_addr(video_addr),
+	    .video_pixel(video_pixel),
+	    .keyboard_valid(1'b0),
+	    .keyboard_data(8'h00),
+	    .keyboard_ready()
+	  );
 
 `ifdef SIMULATION
   assign lcd_clk = clk;

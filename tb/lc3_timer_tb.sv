@@ -30,11 +30,14 @@ module lc3_timer_tb;
     .cpu_rdata(cpu_rdata),
     .cpu_wdata(cpu_wdata),
     .cpu_we(cpu_we),
-    .video_clk(clk),
-    .video_enabled(video_enabled),
-    .video_addr(video_addr),
-    .video_pixel(video_pixel)
-  );
+	    .video_clk(clk),
+	    .video_enabled(video_enabled),
+	    .video_addr(video_addr),
+	    .video_pixel(video_pixel),
+	    .keyboard_valid(1'b0),
+	    .keyboard_data(8'h00),
+	    .keyboard_ready()
+	  );
 
   task automatic write_word(input logic [15:0] addr, input logic [15:0] data);
     begin

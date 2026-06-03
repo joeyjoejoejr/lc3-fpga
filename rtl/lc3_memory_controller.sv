@@ -16,13 +16,22 @@ module lc3_memory_controller #(
   input  logic        video_clk,
   input  logic        video_enabled,
   input  logic [13:0] video_addr,
-  output logic [15:0] video_pixel
+  output logic [15:0] video_pixel,
+
+  // Keyboard
+  input  logic        keyboard_valid,
+  input  logic [7:0]  keyboard_data,
+  output logic        keyboard_ready
 );
   localparam logic [15:0] FRAMEBUFFER_START = 16'hC000;
   localparam logic [15:0] FRAMEBUFFER_END   = 16'hFDFF;
   localparam logic [15:0] DEVICE_START      = 16'hFE00;
   localparam logic [15:0] LED_REG_ADDR      = 16'hFE10;
   localparam logic [13:0] FRAMEBUFFER_WORDS = 14'd15872;
+
+  // Hardware IO
+  localparam logic [15:0] KBSR_ADDR         = 16'hFE00;
+  localparam logic [15:0] KBDR_ADDR         = 16'hFE02;
   localparam logic [15:0] TMR_ADDR          = 16'hFE08;
   localparam logic [15:0] TMI_ADDR          = 16'hFE0A;
 
@@ -51,6 +60,22 @@ module lc3_memory_controller #(
     .tmi_value(tmi_value)
   );
 
+  // Keyboard
+  logic [15:0] kbsr_value;
+  logic [15:0] kbdr_value;
+  logic kbdr_read;
+
+  assign keyboard_ready = !kbsr_value[15];
+  lc3_keyboard keyboard(
+    .clk(clk),
+    .reset(reset),
+    .keyboard_valid(keyboard_valid),
+    .keyboard_data(keyboard_data),
+    .kbdr_read(kbdr_read),
+    .kbsr_value(kbsr_value),
+    .kbdr_value(kbdr_value)
+  );
+
   assign cpu_addr_is_framebuffer =
     cpu_addr >= FRAMEBUFFER_START && cpu_addr <= FRAMEBUFFER_END;
   assign cpu_addr_is_device = cpu_addr >= DEVICE_START;
@@ -74,9 +99,12 @@ module lc3_memory_controller #(
   always_ff @(posedge clk) begin
     tmr_read <= 1'b0;
     tmi_we <= 1'b0;
+    kbdr_read <= 1'b0;
+
     if(reset) begin
       tmr_read <= 1'b0;
       tmi_we <= 1'b0;
+      kbdr_read <= 1'b0;
       cpu_rdata <= 16'd0;
     end
     else begin
@@ -93,6 +121,15 @@ module lc3_memory_controller #(
       else if (cpu_addr_is_device) begin
         // Device registers will be decoded here one at a time.
         case(cpu_addr)
+          KBSR_ADDR: begin
+            if(!cpu_we) cpu_rdata <= kbsr_value;
+          end
+          KBDR_ADDR: begin
+            if(!cpu_we) begin
+              kbdr_read <= 1'b1;
+              cpu_rdata <= kbdr_value;
+            end
+          end
           TMR_ADDR: begin
             if(!cpu_we) begin
               cpu_rdata <= tmr_value;

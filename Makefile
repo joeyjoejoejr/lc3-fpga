@@ -27,11 +27,14 @@ FPGA_INIT_HEX ?= programs/top/framebuffer_cpu_smoke.hex
 
 RTL := rtl/lc3_core.sv rtl/lc3_memory.sv
 TIMER_RTL := rtl/lc3_timer.sv
-MEMCTL_RTL := rtl/lc3_memory_controller.sv $(TIMER_RTL)
-TOP_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv rtl/lc3_timer.sv
+KEYBOARD_RTL := rtl/lc3_keyboard.sv
+MEMCTL_RTL := rtl/lc3_memory_controller.sv $(TIMER_RTL) $(KEYBOARD_RTL)
+TOP_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
 TOP_SIM_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
 UART_TX_RTL := rtl/uart_tx.sv
+UART_RX_RTL := rtl/uart_rx.sv
 TX_TOP_RTL := rtl/tx_top.sv $(UART_TX_RTL)
+UART_ECHO_TOP_RTL := rtl/uart_echo_top.sv $(UART_RX_RTL) $(UART_TX_RTL)
 LCD_COLOR_RTL := rtl/lcd_color_top.sv rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lcd_color_bars.sv
 FRAMEBUFFER_READER_RTL := $(wildcard rtl/lc3_framebuffer_reader.sv)
 BUILD := sim/build
@@ -64,9 +67,9 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-framebuffer-reader test-top test-uart-tx assemble fpga-tools fpga-bitstream fpga-program fpga-flash tx-bitstream tx-program tx-flash lcd-color-bitstream lcd-color-program lcd-color-flash wave clean
+.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash tx-bitstream tx-program tx-flash lcd-color-bitstream lcd-color-program lcd-color-flash wave clean
 
-test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-framebuffer-reader test-top test-uart-tx
+test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-top test-uart-tx
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -131,6 +134,9 @@ test-memory-controller: $(BUILD)/lc3_memory_controller_tb.vvp
 test-timer: $(BUILD)/lc3_timer_tb.vvp
 	@$(RUN_VVP) $<
 
+test-keyboard: $(BUILD)/lc3_keyboard_tb.vvp
+	@$(RUN_VVP) $<
+
 test-framebuffer-reader: $(BUILD)/lc3_framebuffer_reader_tb.vvp
 	@$(RUN_VVP) $<
 
@@ -138,6 +144,9 @@ test-top: $(BUILD)/lc3_top_tb.vvp $(TOP_HEX)
 	@$(RUN_VVP) $<
 
 test-uart-tx: $(BUILD)/uart_tx_tb.vvp
+	@$(RUN_VVP) $<
+
+test-uart-rx: $(BUILD)/uart_rx_tb.vvp
 	@$(RUN_VVP) $<
 
 assemble: $(ADD_HEX) $(AND_HEX) $(NOT_HEX) $(BR_HEX) $(LEA_HEX) $(LD_HEX) $(ST_HEX) $(LDR_HEX) $(STR_HEX) $(JUMP_HEX) $(LDI_HEX) $(STI_HEX) $(TRAP_HEX) $(TOP_HEX)
@@ -257,6 +266,10 @@ $(BUILD)/lc3_timer_tb.vvp: $(MEMCTL_RTL) tb/lc3_timer_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_timer_tb.sv $(MEMCTL_RTL)
 
+$(BUILD)/lc3_keyboard_tb.vvp: $(MEMCTL_RTL) tb/lc3_keyboard_tb.sv tb/tb_helpers.svh
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_keyboard_tb.sv $(MEMCTL_RTL)
+
 $(BUILD)/lc3_framebuffer_reader_tb.vvp: $(MEMCTL_RTL) $(FRAMEBUFFER_READER_RTL) tb/lc3_framebuffer_reader_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_framebuffer_reader_tb.sv $(MEMCTL_RTL) $(FRAMEBUFFER_READER_RTL)
@@ -268,6 +281,10 @@ $(BUILD)/lc3_top_tb.vvp: $(TOP_SIM_RTL) tb/lc3_top_tb.sv tb/tb_helpers.svh $(FPG
 $(BUILD)/uart_tx_tb.vvp: $(UART_TX_RTL) tb/uart_tx_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/uart_tx_tb.sv $(UART_TX_RTL)
+
+$(BUILD)/uart_rx_tb.vvp: $(UART_RX_RTL) tb/uart_rx_tb.sv tb/tb_helpers.svh
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/uart_rx_tb.sv $(UART_RX_RTL)
 
 programs/top/framebuffer_smoke.hex: scripts/make_framebuffer_smoke_hex.py
 	@python3 $<
