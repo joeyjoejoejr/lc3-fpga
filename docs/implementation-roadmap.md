@@ -3,6 +3,27 @@
 This order keeps each new instruction small while reusing pieces that already
 work.
 
+## Current Status
+
+The basic LC-3 system is now far enough along to run meaningful programs on the
+Tang Nano 20K:
+
+```text
+done  core ISA smoke tests through TRAP
+done  PC-relative, base-register, indirect, and jump/control-flow paths
+done  memory controller with RAM, framebuffer, and device-register decode
+done  KBSR/KBDR keyboard MMIO
+done  DSR/DDR UART console MMIO
+done  TSR/TIR timer MMIO
+done  MCR machine halt at xFFFE
+done  RGB LCD timing and LC-3 framebuffer scanout
+done  UART RX/TX demos and LC-3 UART echo program
+done  configurable FPGA init image and Invaders+OS image generation
+```
+
+The remaining work is mostly system integration: better physical input,
+optional text rendering, program loading, and eventually a larger memory story.
+
 ## 1. Core ALU Instructions
 
 ```text
@@ -267,17 +288,200 @@ response valid/read data
 Do not connect the CPU directly to SDRAM pins. Put an SDRAM controller between
 the LC-3 memory map and the external memory.
 
-## 9. Later / Optional
+## 9. Next Feature Order
+
+This is the current recommended order from the present state of the project.
+
+### 9.1 Make Invaders Reproducible
+
+Keep this as the next checkpoint because it exercises nearly every existing
+subsystem at once:
+
+```text
+LC-3 core
+OS trap vectors
+MCR halt
+timer polling
+keyboard polling
+framebuffer writes
+LCD scanout
+UART console output
+```
+
+Concrete tasks:
+
+```text
+document the exact make command for Invaders+OS
+document the expected memory size override
+add a short known-good hardware smoke note
+decide whether reset should clear framebuffer/game RAM or only CPU state
+```
+
+For now, a power cycle reloads initialized BRAM from the flashed bitstream.
+Button reset resets logic state but does not reload modified memory contents.
+
+### 9.2 PS/2 Keyboard Input
+
+Add direct PS/2 support after the UART keyboard path, not before it. UART remains
+the development and debug input path.
+
+Suggested split:
+
+```text
+ps2_rx
+  Synchronize PS/2 clock/data.
+  Detect falling edges of PS/2 clock.
+  Shift start bit, 8 data bits, parity, and stop bit.
+  Emit one scan code plus valid pulse.
+
+ps2_scancode_to_ascii
+  Track break codes.
+  Track shift state.
+  Translate set-2 scan codes to ASCII.
+  Ignore extended keys at first.
+
+keyboard_input_mux
+  Accept ASCII from UART RX and PS/2.
+  Feed the existing lc3_keyboard module.
+```
+
+Start with lowercase letters, space, enter, and digits. Then add shifted
+punctuation if course programs need it.
+
+### 9.3 Keyboard FIFO
+
+The current keyboard path is intentionally small. A FIFO makes it much harder
+to lose typed characters while the LC-3 is busy drawing:
+
+```text
+UART RX ASCII ----\
+                  +--> small FIFO --> KBSR/KBDR
+PS/2 ASCII  ------/
+```
+
+Depth 8 or 16 is enough for now. `KBDR` reads pop the FIFO. `KBSR[15]` is set
+when the FIFO is not empty.
+
+### 9.4 On-Screen Text Console
+
+Keep the graphics framebuffer and console text as separate concepts:
+
+```text
+xC000-xFDFF framebuffer graphics
+xFE04/xFE06 console character output
+```
+
+The first text console should mirror `DDR` writes to both UART TX and an LCD
+text layer. Start with an overlay or a separate text-only mode; do not make
+ordinary `PUTS` routines draw directly into the graphics framebuffer.
+
+Suggested split:
+
+```text
+text_console
+  Consume ASCII bytes.
+  Maintain cursor position.
+  Handle newline, carriage return, backspace, and clear.
+  Write character cells into text RAM.
+
+font_rom
+  8x8 or 8x16 bitmap font.
+
+video_mixer
+  Choose framebuffer pixel, text pixel, or border/background color.
+```
+
+If UART mirroring is enabled, `DSR` should still be limited by UART TX ready.
+The text console itself should usually be ready every cycle or use a tiny input
+FIFO.
+
+### 9.5 SD Card Loader
+
+Use the microSD slot as a loader, not as LC-3 working memory.
+
+Start in SPI mode using the SDIO pins:
+
+```text
+SDIO_CLK -> SPI SCLK
+SDIO_CMD -> SPI MOSI
+SDIO_D0  -> SPI MISO
+SDIO_D3  -> SPI CS
+```
+
+Recommended first format:
+
+```text
+sector 0:
+  magic
+  section count
+  entry/start policy
+  checksum or simple version field
+
+following sectors:
+  section records with LC-3 address + word count + raw 16-bit words
+```
+
+Boot flow:
+
+```text
+power on
+hold LC-3 reset
+try SD image
+if valid, copy sections into RAM/framebuffer as needed
+if invalid, keep bitstream default image
+release LC-3 reset
+```
+
+Add FAT/file menus only after the raw-sector loader works. A Mac-side formatter
+tool is much simpler than implementing a filesystem in RTL.
+
+### 9.6 Reset And Memory Initialization Policy
+
+Decide this deliberately before more demos pile up:
+
+```text
+soft reset:
+  reset CPU/devices only
+  keep RAM/framebuffer contents
+
+reload reset:
+  restore initialized RAM/framebuffer
+  useful for demos and games
+```
+
+The simplest hardware implementation is to keep the current soft reset and use
+power-cycle or reprogramming to reload BRAM init contents. A reload reset can
+come later through a boot controller that rewrites RAM before releasing the
+core.
+
+### 9.7 Memory Expansion
+
+Only move to SDRAM when a concrete program needs more than internal BRAM can
+comfortably provide.
+
+Before SDRAM, consider cheaper intermediate options:
+
+```text
+reduce default RAM size for framebuffer builds
+make framebuffer optional for text-only builds
+load only the OS/program regions actually needed
+use internal BRAM for active RAM and keep SD as load-only storage
+```
+
+When SDRAM becomes necessary, add it behind a ready/valid memory interface and
+test it independently before connecting it to the LC-3 core.
+
+### 9.8 Later / Optional
 
 ```text
 RTI
 privilege mode
 memory protection
 interrupts
-SD card loader
+native USB keyboard host
+file picker / boot menu
+audio
 HDMI scanout
-keyboard bridge
-on-screen text console
 ```
 
-Leave these until the basic ISA and memory-mapped I/O are trustworthy.
+Leave these until the basic standalone system is pleasant to use.

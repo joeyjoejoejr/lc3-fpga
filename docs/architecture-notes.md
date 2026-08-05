@@ -178,3 +178,110 @@ The RGB LCD panel is a raw pixel panel, not a terminal. If the project later
 needs console text on-screen, add a text renderer as a separate video layer
 after the framebuffer path works. HDMI can remain an optional later display
 target using the same framebuffer scanout idea with a different output encoder.
+
+## Console Fanout
+
+The LC-3 should continue to see one display device:
+
+```text
+xFE04 DSR
+xFE06 DDR
+```
+
+Physical outputs can be mirrored behind that device:
+
+```text
+DDR write
+  -> UART TX
+  -> LCD text console
+```
+
+Do not make LC-3 programs choose a physical display. They should write the
+standard device register and let the platform decide where the character goes.
+
+`DSR` should report ready only when every enabled sink can accept a character.
+For a UART+LCD mirror, UART will usually be the limiting sink:
+
+```text
+dsr_ready = uart_tx_ready && text_console_ready
+```
+
+If UART output is disabled in a future standalone build, the text console can
+make `DSR` effectively always ready or FIFO-backed.
+
+## Keyboard Sources
+
+The LC-3 should continue to see one keyboard device:
+
+```text
+xFE00 KBSR
+xFE02 KBDR
+```
+
+Physical input sources feed that device through an ASCII-producing frontend:
+
+```text
+UART RX ASCII ----\
+                  +--> keyboard FIFO --> KBSR/KBDR
+PS/2 ASCII  ------/
+```
+
+UART should stay connected as a development path even after PS/2 works. It
+allows quick testing from a Mac terminal and gives a fallback when the physical
+keyboard hardware is not attached.
+
+The PS/2 path should be split into two responsibilities:
+
+```text
+ps2_rx
+  Decode the serial PS/2 frame into scan codes.
+
+ps2_scancode_to_ascii
+  Track break/shift state and translate scan codes into ASCII.
+```
+
+Start with set-2 scan codes for letters, digits, space, enter, and backspace.
+Add extended keys only when a program needs them.
+
+## Boot Images And SD Loading
+
+The bitstream can contain a default initialized LC-3 image. That gives the board
+a useful power-on behavior even with no removable media.
+
+Later, an SD-card loader can overwrite memory before releasing the LC-3 core:
+
+```text
+FPGA configures from flash
+BRAM contains default image
+boot controller holds LC-3 reset
+SD loader optionally copies an image into RAM
+boot controller releases LC-3 reset
+```
+
+Treat SD as load-time storage, not as live LC-3 memory. SD cards are block
+devices with command latency; they are a good way to load a program image, but
+not a good replacement for RAM on the CPU memory bus.
+
+Start with raw SPI-mode sector reads and a tiny custom image format. FAT and
+menus are later conveniences.
+
+## Reset Policy
+
+A normal FPGA reset does not automatically reload BRAM contents from the
+bitstream. It only changes the registers that the RTL resets.
+
+Recommended policy:
+
+```text
+reset button:
+  reset CPU and device state
+  leave RAM/framebuffer contents alone
+
+power cycle or reflash:
+  reload FPGA configuration
+  restore initialized BRAM contents from the bitstream
+```
+
+If a game needs a repeatable restart without power cycling, add a separate
+reload path later. That likely means a boot controller that writes the initial
+image back into RAM before releasing the LC-3.

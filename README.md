@@ -1,17 +1,21 @@
 # LC-3 FPGA
 
-This is a small starter scaffold for building an LC-3 computer in SystemVerilog.
-The first goal is not a complete CPU. The first goal is a clean simulation loop:
+This is a small LC-3 computer in SystemVerilog, targeting simulation first and
+the Tang Nano 20K FPGA board as the current hardware target.
+
+The project now includes:
+
+- a multi-cycle LC-3 core with the standard ISA smoke-tested through `TRAP`
+- a memory controller with RAM, framebuffer, timer, keyboard, console, and MCR
+- UART RX/TX for development console input/output
+- RGB LCD timing and LC-3 framebuffer scanout
+- build support for selecting FPGA program images
+
+Run the full simulation suite with:
 
 ```sh
 make test
 ```
-
-The starter core currently proves reset and instruction fetch:
-
-- reset sets `PC` to `x3000`
-- the core reads one instruction from memory
-- `PC` advances to the next word
 
 ## Assembling LC-3 Programs
 
@@ -24,92 +28,78 @@ make assemble
 That assembles the files in `programs/add/*.asm` and converts PennSim `.obj`
 files into `$readmemh`-friendly `.hex` files.
 
-The ADD tests are set up but are expected to fail until the core executes more
-than fetch:
+Individual instruction and subsystem tests are available while working on a
+specific feature:
 
 ```sh
+make test-fetch
 make test-add
-```
-
-The AND smoke test is similarly available once ADD works:
-
-```sh
 make test-and
-```
-
-The NOT smoke test checks complementing zero and all ones:
-
-```sh
 make test-not
-```
-
-The BR smoke test checks taken and not-taken branches:
-
-```sh
 make test-br
-```
-
-The LEA smoke test checks PC-relative address calculation:
-
-```sh
 make test-lea
-```
-
-The LD smoke test checks PC-relative memory loads and condition codes:
-
-```sh
 make test-ld
-```
-
-The ST smoke test checks PC-relative memory stores, including a negative offset:
-
-```sh
 make test-st
-```
-
-The LDR and STR smoke tests check base-register addressing with positive and
-negative offsets:
-
-```sh
 make test-ldr
 make test-str
-```
-
-The jump tests cover `JMP`, `RET`, `JSR`, and `JSRR`:
-
-```sh
 make test-jmp
 make test-ret
 make test-jsr
 make test-jsrr
-```
-
-The indirect memory tests cover `LDI` and `STI` with forward and backward
-pointer references:
-
-```sh
 make test-ldi
 make test-sti
+make test-trap
+make test-memory-controller
+make test-timer
+make test-keyboard
+make test-framebuffer-reader
+make test-top
+make test-uart-tx
+make test-uart-rx
 ```
 
-The default test target stays on the passing fetch smoke test:
+## FPGA Builds
+
+Build the current top-level bitstream:
 
 ```sh
-make test
+make fpga-bitstream
+```
+
+Program the board SRAM:
+
+```sh
+make fpga-program
+```
+
+Flash the board so the design reloads after power cycling:
+
+```sh
+make fpga-flash
+```
+
+The default top-level program image is `programs/top/lc3_uart_echo.hex`.
+Override it with `FPGA_INIT_HEX` and, when needed, `FPGA_RAM_WORDS`:
+
+```sh
+make fpga-bitstream \
+  FPGA_INIT_HEX=programs/top/invaders_with_p3os.hex \
+  FPGA_RAM_WORDS=13056
 ```
 
 ## Suggested Milestones
 
-1. Fetch one instruction from memory.
-2. Decode opcode fields into readable wires.
-3. Implement `ADD`, `AND`, and `NOT`.
-4. Add condition codes `N/Z/P`.
-5. Implement `BR`.
-6. Add `LD`, `ST`, `LEA`.
-7. Add `LDR`, `STR`, `LDI`, `STI`.
-8. Add `JMP`, `JSR`, `JSRR`, `TRAP`.
-9. Add memory-mapped I/O: keyboard, console, timer.
-10. Add video framebuffer and HDMI scanout.
+Most of the original CPU milestones are complete. The next useful milestones
+are documented in detail in `docs/implementation-roadmap.md`, but the short
+version is:
+
+1. Make the Invaders+OS hardware build reproducible.
+2. Add direct PS/2 keyboard input.
+3. Add a small keyboard FIFO.
+4. Add optional on-screen text console output.
+5. Add an SD-card loader for user programs.
+6. Decide reset/reload behavior.
+7. Consider SDRAM only when a concrete program needs more memory.
 
 ## Style Choice
 
@@ -124,4 +114,5 @@ for learning value.
 ## References
 
 - [Implementation roadmap](docs/implementation-roadmap.md)
+- [Architecture notes](docs/architecture-notes.md)
 - [Instruction formats](docs/instruction-formats.md)
