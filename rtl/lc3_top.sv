@@ -38,12 +38,14 @@ module lc3_top #(
   logic uart_tx_valid;
   logic [7:0] uart_tx_data;
   logic uart_tx_ready;
+  logic machine_halt;
 
   assign reset = reset_button;
 
   lc3_core core (
     .clk(clk),
     .reset(reset),
+    .machine_halt(machine_halt),
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),
     .mem_wdata(mem_wdata),
@@ -72,7 +74,8 @@ module lc3_top #(
     .keyboard_ready(keyboard_ready),
     .display_valid(uart_tx_valid),
     .display_data(uart_tx_data),
-    .display_ready(uart_tx_ready)
+    .display_ready(uart_tx_ready),
+    .machine_halt(machine_halt)
   );
 
   uart_rx keyboard_uart (

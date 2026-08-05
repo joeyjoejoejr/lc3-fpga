@@ -13,6 +13,7 @@ module lc3_memory_controller_tb;
   logic        video_enabled;
   logic [13:0] video_addr;
   logic [15:0] video_pixel;
+  logic        machine_halt;
 
   always #5 clk = ~clk;
 
@@ -32,7 +33,8 @@ module lc3_memory_controller_tb;
 	    .keyboard_ready(),
 	    .display_valid(),
 	    .display_data(),
-	    .display_ready(1'b1)
+	    .display_ready(1'b1),
+	    .machine_halt(machine_halt)
 	  );
 
   task automatic write_word(input logic [15:0] addr, input logic [15:0] data);
@@ -107,6 +109,24 @@ module lc3_memory_controller_tb;
       $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, "device_stub");
       $display("       actual   %04h", cpu_rdata);
       $display("       expected %04h", 16'h0000);
+      $fatal(1);
+    end
+
+    if (machine_halt !== 1'b0) begin
+      $display("%s[FAIL]%s %-14s machine_halt should start deasserted",
+               TB_RED, TB_RESET, "mcr_halt");
+      $display("       actual   %0b", machine_halt);
+      $fatal(1);
+    end
+
+    write_word(16'hFFFE, 16'h7FFF);
+    @(posedge clk);
+
+    if (machine_halt !== 1'b1) begin
+      $display("%s[FAIL]%s %-14s MCR bit 15 clear should halt machine",
+               TB_RED, TB_RESET, "mcr_halt");
+      $display("       actual   %0b", machine_halt);
+      $display("       expected 1");
       $fatal(1);
     end
 

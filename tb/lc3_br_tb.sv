@@ -31,6 +31,7 @@ module lc3_br_case #(
   lc3_core dut (
     .clk(clk),
     .reset(reset),
+    .machine_halt(1'b0),
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),
     .mem_wdata(mem_wdata),

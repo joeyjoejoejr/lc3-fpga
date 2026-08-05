@@ -23,6 +23,9 @@ module lc3_memory_controller #(
   input  logic [7:0]  keyboard_data,
   output logic        keyboard_ready,
 
+  // Halt
+  output logic        machine_halt,
+
   // Display / console
   output logic        display_valid,
   output logic [7:0]  display_data,
@@ -41,9 +44,11 @@ module lc3_memory_controller #(
   localparam logic [15:0] DDR_ADDR          = 16'hFE06;
   localparam logic [15:0] TMR_ADDR          = 16'hFE08;
   localparam logic [15:0] TMI_ADDR          = 16'hFE0A;
+  localparam logic [15:0] MCR_ADDR          = 16'hFFFE;
 
   logic [15:0] mem [0:RAM_WORDS-1];
   logic [15:0] framebuffer [0:FRAMEBUFFER_WORDS-1];
+  logic [15:0] mcr;
 
   logic cpu_addr_is_framebuffer;
   logic cpu_addr_is_device;
@@ -89,10 +94,12 @@ module lc3_memory_controller #(
   assign cpu_addr_in_ram = cpu_addr < RAM_WORDS;
   assign video_addr_in_range = video_addr < FRAMEBUFFER_WORDS;
   assign cpu_framebuffer_addr = cpu_addr[13:0];
+  assign machine_halt = !mcr[15];
 
   initial begin
     video_pixel = 16'h0000;
     cpu_rdata = 16'h0000;
+    mcr = 16'hFFFF;
 
     if (INIT_FILE != "") begin
       $readmemh(INIT_FILE, mem);
@@ -116,6 +123,7 @@ module lc3_memory_controller #(
       display_valid <= 1'b0;
       display_data <= 8'h00;
       cpu_rdata <= 16'd0;
+      mcr <= 16'hFFFF;
     end
     else begin
       if (cpu_we && cpu_addr_is_framebuffer) begin
@@ -158,6 +166,10 @@ module lc3_memory_controller #(
           TMI_ADDR: begin
             if(cpu_we) tmi_we <= 1'b1;
             else cpu_rdata <= tmi_value;
+          end
+          MCR_ADDR: begin
+            if(cpu_we) mcr <= cpu_wdata;
+            else cpu_rdata <= mcr;
           end
           default: cpu_rdata <= 16'h0000;
         endcase

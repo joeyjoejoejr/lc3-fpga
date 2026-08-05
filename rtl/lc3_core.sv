@@ -3,6 +3,7 @@
 module lc3_core (
   input  logic        clk,
   input  logic        reset,
+  input  logic        machine_halt,
 
   output logic [15:0] mem_addr,
   input  logic [15:0] mem_rdata,
@@ -155,6 +156,7 @@ module lc3_core (
       mem_wdata <= 16'h0000;
       mem_we <= 1'b0;
       return_state <= STATE_HALT;
+    end else if (machine_halt) begin
     end else begin
       case (state)
         STATE_FETCH: begin
