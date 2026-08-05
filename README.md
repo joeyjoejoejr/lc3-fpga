@@ -129,12 +129,13 @@ Most of the original CPU milestones are complete. The next useful milestones
 are documented in detail in `docs/implementation-roadmap.md`, but the short
 version is:
 
-1. Add direct PS/2 keyboard input.
-2. Add a small keyboard FIFO.
-3. Add optional on-screen text console output.
+1. Add optional on-screen text console output.
+2. Add direct PS/2 keyboard input.
+3. Decide reset/reload behavior.
 4. Add an SD-card loader for user programs.
-5. Decide reset/reload behavior.
-6. Consider SDRAM only when a concrete program needs more memory.
+5. Add an optional keyboard FIFO if missed characters become annoying.
+6. Add interrupts/`RTI`/privilege when a program actually needs them.
+7. Consider SDRAM only when a concrete program needs more memory.
 
 ## Style Choice
 

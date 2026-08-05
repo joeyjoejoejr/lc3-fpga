@@ -321,49 +321,7 @@ todo  decide whether reset should clear framebuffer/game RAM or only CPU state
 For now, a power cycle reloads initialized BRAM from the flashed bitstream.
 Button reset resets logic state but does not reload modified memory contents.
 
-### 9.2 PS/2 Keyboard Input
-
-Add direct PS/2 support after the UART keyboard path, not before it. UART remains
-the development and debug input path.
-
-Suggested split:
-
-```text
-ps2_rx
-  Synchronize PS/2 clock/data.
-  Detect falling edges of PS/2 clock.
-  Shift start bit, 8 data bits, parity, and stop bit.
-  Emit one scan code plus valid pulse.
-
-ps2_scancode_to_ascii
-  Track break codes.
-  Track shift state.
-  Translate set-2 scan codes to ASCII.
-  Ignore extended keys at first.
-
-keyboard_input_mux
-  Accept ASCII from UART RX and PS/2.
-  Feed the existing lc3_keyboard module.
-```
-
-Start with lowercase letters, space, enter, and digits. Then add shifted
-punctuation if course programs need it.
-
-### 9.3 Keyboard FIFO
-
-The current keyboard path is intentionally small. A FIFO makes it much harder
-to lose typed characters while the LC-3 is busy drawing:
-
-```text
-UART RX ASCII ----\
-                  +--> small FIFO --> KBSR/KBDR
-PS/2 ASCII  ------/
-```
-
-Depth 8 or 16 is enough for now. `KBDR` reads pop the FIFO. `KBSR[15]` is set
-when the FIFO is not empty.
-
-### 9.4 On-Screen Text Console
+### 9.2 On-Screen Text Console
 
 Keep the graphics framebuffer and console text as separate concepts:
 
@@ -395,6 +353,54 @@ video_mixer
 If UART mirroring is enabled, `DSR` should still be limited by UART TX ready.
 The text console itself should usually be ready every cycle or use a tiny input
 FIFO.
+
+### 9.3 PS/2 Keyboard Input
+
+Add direct PS/2 support after the LCD text console because PS/2 depends on
+external wiring and soldering. UART remains the development and debug input
+path.
+
+Suggested split:
+
+```text
+ps2_rx
+  Synchronize PS/2 clock/data.
+  Detect falling edges of PS/2 clock.
+  Shift start bit, 8 data bits, parity, and stop bit.
+  Emit one scan code plus valid pulse.
+
+ps2_scancode_to_ascii
+  Track break codes.
+  Track shift state.
+  Translate set-2 scan codes to ASCII.
+  Ignore extended keys at first.
+
+keyboard_input_mux
+  Accept ASCII from UART RX and PS/2.
+  Feed the existing lc3_keyboard module.
+```
+
+Start with lowercase letters, space, enter, and digits. Then add shifted
+punctuation if course programs need it.
+
+### 9.4 Reset And Memory Initialization Policy
+
+Decide this deliberately before more demos pile up:
+
+```text
+soft reset:
+  reset CPU/devices only
+  keep RAM/framebuffer contents
+
+reload reset:
+  restore initialized RAM/framebuffer
+  useful for demos and games
+```
+
+The simplest hardware implementation is to keep the current soft reset and use
+power-cycle or reprogramming to reload BRAM init contents. A reload reset can
+come later through a boot controller that rewrites RAM before releasing the
+core.
 
 ### 9.5 SD Card Loader
 
@@ -436,24 +442,27 @@ release LC-3 reset
 Add FAT/file menus only after the raw-sector loader works. A Mac-side formatter
 tool is much simpler than implementing a filesystem in RTL.
 
-### 9.6 Reset And Memory Initialization Policy
+### 9.6 Optional Keyboard FIFO
 
-Decide this deliberately before more demos pile up:
+The LC-3-style keyboard device is a single-character register. That is simpler
+and more faithful than a typeahead queue:
 
 ```text
-soft reset:
-  reset CPU/devices only
-  keep RAM/framebuffer contents
-
-reload reset:
-  restore initialized RAM/framebuffer
-  useful for demos and games
+keyboard event arrives -> KBDR gets character and KBSR[15] sets
+program reads KBDR    -> KBSR[15] clears
 ```
 
-The simplest hardware implementation is to keep the current soft reset and use
-power-cycle or reprogramming to reload BRAM init contents. A reload reset can
-come later through a boot controller that rewrites RAM before releasing the
-core.
+If real use shows missed characters, add a FIFO as a platform enhancement:
+
+```text
+UART RX ASCII ----\
+                  +--> small FIFO --> KBSR/KBDR
+PS/2 ASCII  ------/
+```
+
+Depth 8 or 16 is enough for now. `KBDR` reads pop the FIFO. `KBSR[15]` is set
+when the FIFO is not empty. This can be parameterized so the faithful mode is
+depth 1 and the friendly standalone mode uses a deeper queue.
 
 ### 9.7 Memory Expansion
 

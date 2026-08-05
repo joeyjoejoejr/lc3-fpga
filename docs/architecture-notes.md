@@ -222,13 +222,18 @@ Physical input sources feed that device through an ASCII-producing frontend:
 
 ```text
 UART RX ASCII ----\
-                  +--> keyboard FIFO --> KBSR/KBDR
+                  +--> lc3_keyboard --> KBSR/KBDR
 PS/2 ASCII  ------/
 ```
 
 UART should stay connected as a development path even after PS/2 works. It
 allows quick testing from a Mac terminal and gives a fallback when the physical
 keyboard hardware is not attached.
+
+The LC-3-compatible default should stay close to a single-character device
+register. If the CPU does not read `KBDR` quickly enough, missed characters are
+acceptable and match the simple polling model. A deeper keyboard FIFO can be
+added later as an optional typeahead enhancement.
 
 The PS/2 path should be split into two responsibilities:
 
