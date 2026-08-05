@@ -14,6 +14,9 @@ FPGA_FREQ_MHZ ?= 27
 FPGA_CST ?= constraints/lc3_lcd.cst
 FPGA_RAM_WORDS ?= 12800
 FPGA_BUILD := sim/fpga
+INVADERS_INIT_HEX := programs/top/invaders_with_p3os.hex
+INVADERS_RAM_WORDS := 13056
+INVADERS_FPGA_BUILD := sim/fpga-invaders
 TX_FPGA_TOP ?= tx_top
 TX_FPGA_CST ?= constraints/tx_test.cst
 TX_FPGA_BUILD := sim/fpga-tx
@@ -75,7 +78,7 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash wave clean
+.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash wave clean
 
 test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-top test-uart-tx test-uart-rx
 
@@ -173,6 +176,15 @@ fpga-program: $(FPGA_BUILD)/$(FPGA_TOP).fs
 
 fpga-flash: $(FPGA_BUILD)/$(FPGA_TOP).fs
 	$(OPENFPGALOADER) -b tangnano20k -f $<
+
+invaders-bitstream: $(INVADERS_INIT_HEX)
+	$(MAKE) fpga-bitstream FPGA_INIT_HEX=$(INVADERS_INIT_HEX) FPGA_RAM_WORDS=$(INVADERS_RAM_WORDS) FPGA_BUILD=$(INVADERS_FPGA_BUILD)
+
+invaders-program: $(INVADERS_INIT_HEX)
+	$(MAKE) fpga-program FPGA_INIT_HEX=$(INVADERS_INIT_HEX) FPGA_RAM_WORDS=$(INVADERS_RAM_WORDS) FPGA_BUILD=$(INVADERS_FPGA_BUILD)
+
+invaders-flash: $(INVADERS_INIT_HEX)
+	$(MAKE) fpga-flash FPGA_INIT_HEX=$(INVADERS_INIT_HEX) FPGA_RAM_WORDS=$(INVADERS_RAM_WORDS) FPGA_BUILD=$(INVADERS_FPGA_BUILD)
 
 tx-bitstream: $(TX_FPGA_BUILD)/$(TX_FPGA_TOP).fs
 
@@ -380,4 +392,4 @@ wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) $(FPGA_BUILD) $(TX_FPGA_BUILD) $(ECHO_FPGA_BUILD) $(RX_PROBE_FPGA_BUILD) $(LCD_COLOR_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex
+	rm -rf $(BUILD) $(FPGA_BUILD) $(INVADERS_FPGA_BUILD) $(TX_FPGA_BUILD) $(ECHO_FPGA_BUILD) $(RX_PROBE_FPGA_BUILD) $(LCD_COLOR_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex

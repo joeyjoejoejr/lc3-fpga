@@ -87,19 +87,54 @@ make fpga-bitstream \
   FPGA_RAM_WORDS=13056
 ```
 
+## Invaders Hardware Smoke
+
+The Invaders build combines `external/LC3Programs/Invaders/p3os.obj` with
+`programs/top/invaders.asm` and uses a larger RAM setting so the OS and program
+fit in initialized BRAM.
+
+Build the Invaders bitstream:
+
+```sh
+make invaders-bitstream
+```
+
+Program the board SRAM:
+
+```sh
+make invaders-program
+```
+
+Flash the board so Invaders reloads after power cycling:
+
+```sh
+make invaders-flash
+```
+
+Expected hardware behavior:
+
+- the LCD shows the LC-3 framebuffer
+- keyboard input currently comes from UART RX
+- console output is mirrored to UART TX
+- the timer registers drive the game loop
+- `HALT` stops the machine through MCR at `xFFFE`
+
+The reset button resets CPU/device state, but it does not reload modified BRAM
+or framebuffer contents. Power cycling after `make invaders-flash` reloads the
+initialized image from flash.
+
 ## Suggested Milestones
 
 Most of the original CPU milestones are complete. The next useful milestones
 are documented in detail in `docs/implementation-roadmap.md`, but the short
 version is:
 
-1. Make the Invaders+OS hardware build reproducible.
-2. Add direct PS/2 keyboard input.
-3. Add a small keyboard FIFO.
-4. Add optional on-screen text console output.
-5. Add an SD-card loader for user programs.
-6. Decide reset/reload behavior.
-7. Consider SDRAM only when a concrete program needs more memory.
+1. Add direct PS/2 keyboard input.
+2. Add a small keyboard FIFO.
+3. Add optional on-screen text console output.
+4. Add an SD-card loader for user programs.
+5. Decide reset/reload behavior.
+6. Consider SDRAM only when a concrete program needs more memory.
 
 ## Style Choice
 

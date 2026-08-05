@@ -19,6 +19,7 @@ done  MCR machine halt at xFFFE
 done  RGB LCD timing and LC-3 framebuffer scanout
 done  UART RX/TX demos and LC-3 UART echo program
 done  configurable FPGA init image and Invaders+OS image generation
+done  Invaders+OS Makefile targets and README hardware-smoke notes
 ```
 
 The remaining work is mostly system integration: better physical input,
@@ -292,10 +293,10 @@ the LC-3 memory map and the external memory.
 
 This is the current recommended order from the present state of the project.
 
-### 9.1 Make Invaders Reproducible
+### 9.1 Invaders Hardware Smoke
 
-Keep this as the next checkpoint because it exercises nearly every existing
-subsystem at once:
+Use Invaders as the main system checkpoint because it exercises nearly every
+existing subsystem at once:
 
 ```text
 LC-3 core
@@ -311,10 +312,10 @@ UART console output
 Concrete tasks:
 
 ```text
-document the exact make command for Invaders+OS
-document the expected memory size override
-add a short known-good hardware smoke note
-decide whether reset should clear framebuffer/game RAM or only CPU state
+done  document the exact make commands for Invaders+OS
+done  document the expected memory size override
+done  add a short known-good hardware smoke note
+todo  decide whether reset should clear framebuffer/game RAM or only CPU state
 ```
 
 For now, a power cycle reloads initialized BRAM from the flashed bitstream.
