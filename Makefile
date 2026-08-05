@@ -12,6 +12,7 @@ FPGA_PACK_DEVICE ?= GW2A-18C
 FPGA_DEVICE ?= GW2AR-LV18QN88C8/I7
 FPGA_FREQ_MHZ ?= 27
 FPGA_CST ?= constraints/lc3_lcd.cst
+FPGA_RAM_WORDS ?= 12800
 FPGA_BUILD := sim/fpga
 TX_FPGA_TOP ?= tx_top
 TX_FPGA_CST ?= constraints/tx_test.cst
@@ -312,9 +313,15 @@ $(BUILD)/uart_rx_tb.vvp: $(UART_RX_RTL) tb/uart_rx_tb.sv tb/tb_helpers.svh
 programs/top/framebuffer_smoke.hex: scripts/make_framebuffer_smoke_hex.py
 	@python3 $<
 
+programs/top/lc3_uart_echo.hex: scripts/make_lc3_uart_echo_hex.py
+	@python3 $<
+
+programs/top/invaders_with_p3os.hex: scripts/combine_lc3_hex.py external/LC3Programs/Invaders/p3os.obj programs/top/invaders.obj
+	@python3 $< $@ external/LC3Programs/Invaders/p3os.obj programs/top/invaders.obj
+
 $(FPGA_BUILD)/$(FPGA_TOP).json: $(TOP_RTL) $(TOP_HEX) $(FPGA_INIT_HEX) $(FPGA_CST) | fpga-tools
 	@mkdir -p $(FPGA_BUILD)
-	$(YOSYS) -p "read_verilog -sv $(TOP_RTL); synth_gowin -family $(FPGA_FAMILY) -top $(FPGA_TOP) -json $@"
+	$(YOSYS) -p "read_verilog -sv $(TOP_RTL); chparam -set INIT_FILE \"$(FPGA_INIT_HEX)\" -set RAM_WORDS $(FPGA_RAM_WORDS) $(FPGA_TOP); synth_gowin -family $(FPGA_FAMILY) -top $(FPGA_TOP) -json $@"
 
 $(FPGA_BUILD)/$(FPGA_TOP)_pnr.json: $(FPGA_BUILD)/$(FPGA_TOP).json $(FPGA_CST) | fpga-tools
 	$(NEXTPNR_GOWIN) --json $< --write $@ --device $(FPGA_DEVICE) --vopt family=$(FPGA_PACK_DEVICE) --vopt cst=$(FPGA_CST) --freq $(FPGA_FREQ_MHZ)
