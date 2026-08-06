@@ -125,7 +125,7 @@ module lc3_text_renderer_tb;
     repeat (2) @(posedge clk);
 
     lcd_en = 1'b0;
-    lcd_x = 9'd16;
+    lcd_x = 9'd18;
     lcd_y = 9'd8;
     cell_read_data = "A";
 
@@ -133,7 +133,7 @@ module lc3_text_renderer_tb;
     expect_text_pixel("blank_pixel", 1'b0, 5'h00, 6'h00, 5'h00);
 
     lcd_en = 1'b1;
-    lcd_x = 9'd16;
+    lcd_x = 9'd18;
     lcd_y = 9'd8;
     cell_read_data = "A";
 
@@ -147,14 +147,14 @@ module lc3_text_renderer_tb;
     expect_cell_request("off_cell_request", 2, 1);
     expect_text_pixel("draw_A_off_pixel", 1'b0, 5'h00, 6'h00, 5'h00);
 
-    lcd_x = 9'd16;
+    lcd_x = 9'd18;
     lcd_y = 9'd8;
     cell_read_data = " ";
 
     expect_cell_request("space_cell_request", 2, 1);
     expect_text_pixel("draw_space_pixel", 1'b0, 5'h00, 6'h00, 5'h00);
 
-    lcd_x = 9'd16;
+    lcd_x = 9'd18;
     lcd_y = 9'd8;
     cell_read_data = "A";
 
