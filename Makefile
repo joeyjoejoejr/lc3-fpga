@@ -42,6 +42,7 @@ MEMCTL_RTL := rtl/lc3_memory_controller.sv $(TIMER_RTL) $(KEYBOARD_RTL)
 UART_TX_RTL := rtl/uart_tx.sv
 UART_RX_RTL := rtl/uart_rx.sv
 TEXT_CONSOLE_RTL := rtl/lc3_text_console.sv
+TEXT_RENDERER_RTL := rtl/lc3_text_renderer.sv rtl/lc3_font_rom.sv
 TOP_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) $(UART_RX_RTL) $(UART_TX_RTL) rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
 TOP_SIM_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) $(UART_RX_RTL) $(UART_TX_RTL) rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
 TX_TOP_RTL := rtl/tx_top.sv $(UART_TX_RTL)
@@ -79,7 +80,7 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash wave clean
+.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash wave clean
 
 test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-top test-uart-tx test-uart-rx
 
@@ -153,6 +154,9 @@ test-framebuffer-reader: $(BUILD)/lc3_framebuffer_reader_tb.vvp
 	@$(RUN_VVP) $<
 
 test-text-console: $(BUILD)/lc3_text_console_tb.vvp
+	@$(RUN_VVP) $<
+
+test-text-renderer: $(BUILD)/lc3_text_renderer_tb.vvp
 	@$(RUN_VVP) $<
 
 test-top: $(BUILD)/lc3_top_tb.vvp $(TOP_HEX)
@@ -317,6 +321,10 @@ $(BUILD)/lc3_framebuffer_reader_tb.vvp: $(MEMCTL_RTL) $(FRAMEBUFFER_READER_RTL) 
 $(BUILD)/lc3_text_console_tb.vvp: $(TEXT_CONSOLE_RTL) tb/lc3_text_console_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -s lc3_text_console_all_tb -o $@ tb/lc3_text_console_tb.sv $(TEXT_CONSOLE_RTL)
+
+$(BUILD)/lc3_text_renderer_tb.vvp: $(TEXT_RENDERER_RTL) tb/lc3_text_renderer_tb.sv tb/tb_helpers.svh
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_text_renderer_tb.sv $(TEXT_RENDERER_RTL)
 
 $(BUILD)/lc3_top_tb.vvp: $(TOP_SIM_RTL) tb/lc3_top_tb.sv tb/tb_helpers.svh $(FPGA_INIT_HEX)
 	@mkdir -p $(BUILD)
