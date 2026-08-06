@@ -3,7 +3,8 @@
 module lc3_top #(
   parameter INIT_FILE = "programs/top/lc3_uart_echo.hex",
   parameter FRAMEBUFFER_INIT_FILE = "",
-  parameter int RAM_WORDS = 16'h3200
+  parameter int RAM_WORDS = 16'h3200,
+  parameter bit TEXT_CONSOLE_MODE = 1'b0
 ) (
   input  logic       clk,
   input  logic       reset_button,
@@ -38,9 +39,29 @@ module lc3_top #(
   logic uart_tx_valid;
   logic [7:0] uart_tx_data;
   logic uart_tx_ready;
+  logic display_ready;
+  logic text_char_valid;
+  logic [7:0] text_char_data;
+  logic text_bridge_ready;
+  logic text_console_ready;
+  logic [5:0] text_cell_read_col;
+  logic [5:0] text_cell_read_row;
+  logic [7:0] text_cell_read_data;
+  logic text_pixel_on;
+  logic [4:0] framebuffer_lcd_b;
+  logic [5:0] framebuffer_lcd_g;
+  logic [4:0] framebuffer_lcd_r;
+  logic [4:0] text_lcd_b;
+  logic [5:0] text_lcd_g;
+  logic [4:0] text_lcd_r;
   logic machine_halt;
 
   assign reset = reset_button;
+  assign display_ready = TEXT_CONSOLE_MODE ?
+    (uart_tx_ready && text_bridge_ready) : uart_tx_ready;
+  assign lcd_b = TEXT_CONSOLE_MODE ? text_lcd_b : framebuffer_lcd_b;
+  assign lcd_g = TEXT_CONSOLE_MODE ? text_lcd_g : framebuffer_lcd_g;
+  assign lcd_r = TEXT_CONSOLE_MODE ? text_lcd_r : framebuffer_lcd_r;
 
   lc3_core core (
     .clk(clk),
@@ -74,7 +95,7 @@ module lc3_top #(
     .keyboard_ready(keyboard_ready),
     .display_valid(uart_tx_valid),
     .display_data(uart_tx_data),
-    .display_ready(uart_tx_ready),
+    .display_ready(display_ready),
     .machine_halt(machine_halt)
   );
 
@@ -93,6 +114,19 @@ module lc3_top #(
     .data(uart_tx_data),
     .tx(tx),
     .ready(uart_tx_ready)
+  );
+
+  lc3_display_bridge display_bridge (
+    .sys_clk(clk),
+    .sys_reset(reset),
+    .sys_valid(uart_tx_valid && TEXT_CONSOLE_MODE),
+    .sys_data(uart_tx_data),
+    .sys_ready(text_bridge_ready),
+    .lcd_clk(lcd_clk),
+    .lcd_reset(reset),
+    .lcd_valid(text_char_valid),
+    .lcd_data(text_char_data),
+    .lcd_ready(text_console_ready)
   );
 
 `ifdef SIMULATION
@@ -120,11 +154,40 @@ module lc3_top #(
     .lcd_en(lcd_en),
     .lcd_x(lcd_x),
     .lcd_y(lcd_y),
-    .lcd_r(lcd_r),
-    .lcd_g(lcd_g),
-    .lcd_b(lcd_b),
+    .lcd_r(framebuffer_lcd_r),
+    .lcd_g(framebuffer_lcd_g),
+    .lcd_b(framebuffer_lcd_b),
     .video_pixel(video_pixel),
     .video_en(video_en),
     .video_addr(video_addr)
+  );
+
+  lc3_text_console #(
+    .COLS(60),
+    .ROWS(34)
+  ) text_console (
+    .clk(lcd_clk),
+    .reset(reset),
+    .char_valid(text_char_valid),
+    .char_data(text_char_data),
+    .char_ready(text_console_ready),
+    .cell_read_col(text_cell_read_col),
+    .cell_read_row(text_cell_read_row),
+    .cell_read_data(text_cell_read_data)
+  );
+
+  lc3_text_renderer text_renderer (
+    .clk(lcd_clk),
+    .reset(reset),
+    .lcd_en(lcd_en),
+    .lcd_x(lcd_x),
+    .lcd_y(lcd_y),
+    .cell_read_col(text_cell_read_col),
+    .cell_read_row(text_cell_read_row),
+    .cell_read_data(text_cell_read_data),
+    .text_pixel_on(text_pixel_on),
+    .lcd_r(text_lcd_r),
+    .lcd_g(text_lcd_g),
+    .lcd_b(text_lcd_b)
   );
 endmodule

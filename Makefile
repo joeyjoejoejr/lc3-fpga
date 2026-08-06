@@ -13,10 +13,13 @@ FPGA_DEVICE ?= GW2AR-LV18QN88C8/I7
 FPGA_FREQ_MHZ ?= 27
 FPGA_CST ?= constraints/lc3_lcd.cst
 FPGA_RAM_WORDS ?= 12800
+FPGA_TEXT_CONSOLE_MODE ?= 0
 FPGA_BUILD := sim/fpga
 INVADERS_INIT_HEX := programs/top/invaders_with_p3os.hex
 INVADERS_RAM_WORDS := 13056
 INVADERS_FPGA_BUILD := sim/fpga-invaders
+ANDME_INIT_HEX := programs/top/andme_with_os.hex
+ANDME_FPGA_BUILD := sim/fpga-andme
 TX_FPGA_TOP ?= tx_top
 TX_FPGA_CST ?= constraints/tx_test.cst
 TX_FPGA_BUILD := sim/fpga-tx
@@ -46,8 +49,9 @@ UART_TX_RTL := rtl/uart_tx.sv
 UART_RX_RTL := rtl/uart_rx.sv
 TEXT_CONSOLE_RTL := rtl/lc3_text_console.sv
 TEXT_RENDERER_RTL := rtl/lc3_text_renderer.sv rtl/lc3_font_rom.sv
-TOP_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) $(UART_RX_RTL) $(UART_TX_RTL) rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
-TOP_SIM_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) $(UART_RX_RTL) $(UART_TX_RTL) rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv
+DISPLAY_BRIDGE_RTL := rtl/lc3_display_bridge.sv
+TOP_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) $(UART_RX_RTL) $(UART_TX_RTL) rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv $(DISPLAY_BRIDGE_RTL) $(TEXT_CONSOLE_RTL) $(TEXT_RENDERER_RTL)
+TOP_SIM_RTL := rtl/lc3_top.sv rtl/lc3_core.sv $(MEMCTL_RTL) $(UART_RX_RTL) $(UART_TX_RTL) rtl/lcd_timing.sv rtl/lc3_framebuffer_reader.sv $(DISPLAY_BRIDGE_RTL) $(TEXT_CONSOLE_RTL) $(TEXT_RENDERER_RTL)
 TX_TOP_RTL := rtl/tx_top.sv $(UART_TX_RTL)
 UART_ECHO_TOP_RTL := rtl/uart_echo_top.sv $(UART_RX_RTL) $(UART_TX_RTL)
 UART_RX_PROBE_TOP_RTL := rtl/uart_rx_probe_top.sv
@@ -84,9 +88,9 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
+.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
 
-test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-top test-uart-tx test-uart-rx
+test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -163,6 +167,9 @@ test-text-console: $(BUILD)/lc3_text_console_tb.vvp
 test-text-renderer: $(BUILD)/lc3_text_renderer_tb.vvp
 	@$(RUN_VVP) $<
 
+test-display-bridge: $(BUILD)/lc3_display_bridge_tb.vvp
+	@$(RUN_VVP) $<
+
 test-top: $(BUILD)/lc3_top_tb.vvp $(TOP_HEX)
 	@$(RUN_VVP) $<
 
@@ -197,6 +204,15 @@ invaders-program: $(INVADERS_INIT_HEX)
 
 invaders-flash: $(INVADERS_INIT_HEX)
 	$(MAKE) fpga-flash FPGA_INIT_HEX=$(INVADERS_INIT_HEX) FPGA_RAM_WORDS=$(INVADERS_RAM_WORDS) FPGA_BUILD=$(INVADERS_FPGA_BUILD)
+
+andme-bitstream: $(ANDME_INIT_HEX)
+	$(MAKE) fpga-bitstream FPGA_INIT_HEX=$(ANDME_INIT_HEX) FPGA_TEXT_CONSOLE_MODE=1 FPGA_BUILD=$(ANDME_FPGA_BUILD)
+
+andme-program: $(ANDME_INIT_HEX)
+	$(MAKE) fpga-program FPGA_INIT_HEX=$(ANDME_INIT_HEX) FPGA_TEXT_CONSOLE_MODE=1 FPGA_BUILD=$(ANDME_FPGA_BUILD)
+
+andme-flash: $(ANDME_INIT_HEX)
+	$(MAKE) fpga-flash FPGA_INIT_HEX=$(ANDME_INIT_HEX) FPGA_TEXT_CONSOLE_MODE=1 FPGA_BUILD=$(ANDME_FPGA_BUILD)
 
 tx-bitstream: $(TX_FPGA_BUILD)/$(TX_FPGA_TOP).fs
 
@@ -338,6 +354,10 @@ $(BUILD)/lc3_text_renderer_tb.vvp: $(TEXT_RENDERER_RTL) tb/lc3_text_renderer_tb.
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_text_renderer_tb.sv $(TEXT_RENDERER_RTL)
 
+$(BUILD)/lc3_display_bridge_tb.vvp: $(DISPLAY_BRIDGE_RTL) tb/lc3_display_bridge_tb.sv tb/tb_helpers.svh
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_display_bridge_tb.sv $(DISPLAY_BRIDGE_RTL)
+
 $(BUILD)/lc3_top_tb.vvp: $(TOP_SIM_RTL) tb/lc3_top_tb.sv tb/tb_helpers.svh $(FPGA_INIT_HEX)
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -DSIMULATION -I tb -o $@ tb/lc3_top_tb.sv $(TOP_SIM_RTL)
@@ -359,9 +379,12 @@ programs/top/lc3_uart_echo.hex: scripts/make_lc3_uart_echo_hex.py
 programs/top/invaders_with_p3os.hex: scripts/combine_lc3_hex.py external/LC3Programs/Invaders/p3os.obj programs/top/invaders.obj
 	@python3 $< $@ external/LC3Programs/Invaders/p3os.obj programs/top/invaders.obj
 
+programs/top/andme_with_os.hex: scripts/combine_lc3_hex.py programs/top/andme_trap_vectors.obj programs/top/andme_trap_routines.obj programs/top/andme.obj
+	@python3 $< $@ programs/top/andme_trap_vectors.obj programs/top/andme_trap_routines.obj programs/top/andme.obj
+
 $(FPGA_BUILD)/$(FPGA_TOP).json: $(TOP_RTL) $(TOP_HEX) $(FPGA_INIT_HEX) $(FPGA_CST) | fpga-tools
 	@mkdir -p $(FPGA_BUILD)
-	$(YOSYS) -p "read_verilog -sv $(TOP_RTL); chparam -set INIT_FILE \"$(FPGA_INIT_HEX)\" -set RAM_WORDS $(FPGA_RAM_WORDS) $(FPGA_TOP); synth_gowin -family $(FPGA_FAMILY) -top $(FPGA_TOP) -json $@"
+	$(YOSYS) -p "read_verilog -sv $(TOP_RTL); chparam -set INIT_FILE \"$(FPGA_INIT_HEX)\" -set RAM_WORDS $(FPGA_RAM_WORDS) -set TEXT_CONSOLE_MODE $(FPGA_TEXT_CONSOLE_MODE) $(FPGA_TOP); synth_gowin -family $(FPGA_FAMILY) -top $(FPGA_TOP) -json $@"
 
 $(FPGA_BUILD)/$(FPGA_TOP)_pnr.json: $(FPGA_BUILD)/$(FPGA_TOP).json $(FPGA_CST) | fpga-tools
 	$(NEXTPNR_GOWIN) --json $< --write $@ --device $(FPGA_DEVICE) --vopt family=$(FPGA_PACK_DEVICE) --vopt cst=$(FPGA_CST) --freq $(FPGA_FREQ_MHZ)
@@ -430,4 +453,4 @@ wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) $(FPGA_BUILD) $(INVADERS_FPGA_BUILD) $(TX_FPGA_BUILD) $(ECHO_FPGA_BUILD) $(RX_PROBE_FPGA_BUILD) $(LCD_COLOR_BUILD) $(LCD_TEXT_CONSOLE_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex
+	rm -rf $(BUILD) $(FPGA_BUILD) $(INVADERS_FPGA_BUILD) $(ANDME_FPGA_BUILD) $(TX_FPGA_BUILD) $(ECHO_FPGA_BUILD) $(RX_PROBE_FPGA_BUILD) $(LCD_COLOR_BUILD) $(LCD_TEXT_CONSOLE_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex
