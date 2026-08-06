@@ -29,6 +29,9 @@ RX_PROBE_FPGA_BUILD := sim/fpga-rx-probe
 LCD_COLOR_TOP ?= lcd_color_top
 LCD_COLOR_CST ?= constraints/lcd_color_demo.cst
 LCD_COLOR_BUILD := sim/fpga-lcd-color
+LCD_TEXT_CONSOLE_TOP ?= lcd_text_console_top
+LCD_TEXT_CONSOLE_CST ?= constraints/lcd_color_demo.cst
+LCD_TEXT_CONSOLE_BUILD := sim/fpga-lcd-text-console
 IVERILOG_WARNINGS := -Wall -Wimplicit -Wportbind -Wsensitivity-entire-vector -Wsensitivity-entire-array -Winfloop -Wselect-range -Wno-timescale
 IVERILOG_FLAGS ?= -g2012 $(IVERILOG_WARNINGS)
 PENNSIM_AS := scripts/assemble_with_pennsim.sh
@@ -49,6 +52,7 @@ TX_TOP_RTL := rtl/tx_top.sv $(UART_TX_RTL)
 UART_ECHO_TOP_RTL := rtl/uart_echo_top.sv $(UART_RX_RTL) $(UART_TX_RTL)
 UART_RX_PROBE_TOP_RTL := rtl/uart_rx_probe_top.sv
 LCD_COLOR_RTL := rtl/lcd_color_top.sv rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rtl/lcd_color_bars.sv
+LCD_TEXT_CONSOLE_RTL := rtl/lcd_text_console_top.sv rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv $(TEXT_CONSOLE_RTL) $(TEXT_RENDERER_RTL)
 FRAMEBUFFER_READER_RTL := $(wildcard rtl/lc3_framebuffer_reader.sv)
 BUILD := sim/build
 ADD_ASM := $(wildcard programs/add/*.asm)
@@ -80,7 +84,7 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash wave clean
+.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
 
 test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-top test-uart-tx test-uart-rx
 
@@ -224,6 +228,14 @@ lcd-color-program: $(LCD_COLOR_BUILD)/$(LCD_COLOR_TOP).fs
 	$(OPENFPGALOADER) -b tangnano20k $<
 
 lcd-color-flash: $(LCD_COLOR_BUILD)/$(LCD_COLOR_TOP).fs
+	$(OPENFPGALOADER) -b tangnano20k -f $<
+
+lcd-text-console-bitstream: $(LCD_TEXT_CONSOLE_BUILD)/$(LCD_TEXT_CONSOLE_TOP).fs
+
+lcd-text-console-program: $(LCD_TEXT_CONSOLE_BUILD)/$(LCD_TEXT_CONSOLE_TOP).fs
+	$(OPENFPGALOADER) -b tangnano20k $<
+
+lcd-text-console-flash: $(LCD_TEXT_CONSOLE_BUILD)/$(LCD_TEXT_CONSOLE_TOP).fs
 	$(OPENFPGALOADER) -b tangnano20k -f $<
 
 $(BUILD)/lc3_core_tb.vvp: $(RTL) tb/lc3_core_tb.sv tb/tb_helpers.svh programs/fetch_smoke.hex
@@ -397,6 +409,16 @@ $(LCD_COLOR_BUILD)/$(LCD_COLOR_TOP)_pnr.json: $(LCD_COLOR_BUILD)/$(LCD_COLOR_TOP
 $(LCD_COLOR_BUILD)/$(LCD_COLOR_TOP).fs: $(LCD_COLOR_BUILD)/$(LCD_COLOR_TOP)_pnr.json | fpga-tools
 	$(GOWIN_PACK) -d $(FPGA_PACK_DEVICE) -o $@ $<
 
+$(LCD_TEXT_CONSOLE_BUILD)/$(LCD_TEXT_CONSOLE_TOP).json: $(LCD_TEXT_CONSOLE_RTL) $(LCD_TEXT_CONSOLE_CST) | fpga-tools
+	@mkdir -p $(LCD_TEXT_CONSOLE_BUILD)
+	$(YOSYS) -p "read_verilog -sv $(LCD_TEXT_CONSOLE_RTL); synth_gowin -family $(FPGA_FAMILY) -top $(LCD_TEXT_CONSOLE_TOP) -json $@"
+
+$(LCD_TEXT_CONSOLE_BUILD)/$(LCD_TEXT_CONSOLE_TOP)_pnr.json: $(LCD_TEXT_CONSOLE_BUILD)/$(LCD_TEXT_CONSOLE_TOP).json $(LCD_TEXT_CONSOLE_CST) | fpga-tools
+	$(NEXTPNR_GOWIN) --json $< --write $@ --device $(FPGA_DEVICE) --vopt family=$(FPGA_PACK_DEVICE) --vopt cst=$(LCD_TEXT_CONSOLE_CST) --freq $(FPGA_FREQ_MHZ)
+
+$(LCD_TEXT_CONSOLE_BUILD)/$(LCD_TEXT_CONSOLE_TOP).fs: $(LCD_TEXT_CONSOLE_BUILD)/$(LCD_TEXT_CONSOLE_TOP)_pnr.json | fpga-tools
+	$(GOWIN_PACK) -d $(FPGA_PACK_DEVICE) -o $@ $<
+
 programs/%.obj: programs/%.asm tools/PennSim.jar
 	@$(PENNSIM_AS) $< >/dev/null
 
@@ -408,4 +430,4 @@ wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) $(FPGA_BUILD) $(INVADERS_FPGA_BUILD) $(TX_FPGA_BUILD) $(ECHO_FPGA_BUILD) $(RX_PROBE_FPGA_BUILD) $(LCD_COLOR_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex
+	rm -rf $(BUILD) $(FPGA_BUILD) $(INVADERS_FPGA_BUILD) $(TX_FPGA_BUILD) $(ECHO_FPGA_BUILD) $(RX_PROBE_FPGA_BUILD) $(LCD_COLOR_BUILD) $(LCD_TEXT_CONSOLE_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex

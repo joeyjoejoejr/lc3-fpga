@@ -29,37 +29,53 @@ module lc3_text_renderer #(
   localparam int CHAR_HEIGHT_SIZE = $clog2(CHAR_HEIGHT);
   localparam int CHAR_WIDTH_SIZE = $clog2(CHAR_WIDTH);
 
-  logic lcd_en_d;
-  logic [CHAR_WIDTH_SIZE-1:0] glyph_x_d;
-  logic [CHAR_HEIGHT_SIZE-1:0] glyph_y_d;
+  logic request_en;
+  logic render_en;
+  logic [CHAR_WIDTH_SIZE-1:0] request_glyph_x;
+  logic [CHAR_HEIGHT_SIZE-1:0] request_glyph_y;
+  logic [CHAR_WIDTH_SIZE-1:0] render_glyph_x;
+  logic [CHAR_HEIGHT_SIZE-1:0] render_glyph_y;
   logic [7:0] glyph_row;
   logic glyph_pixel;
 
   lc3_font_rom font_rom (
     .char_code(cell_read_data),
-    .glyph_y(glyph_y_d),
+    .glyph_y(render_glyph_y),
     .glyph_row(glyph_row)
   );
 
   always_ff @(posedge clk) begin
-    if (reset || !lcd_en) begin
+    if (reset) begin
       cell_read_col <= '0;
       cell_read_row <= '0;
-      lcd_en_d <= 1'b0;
-      glyph_x_d <= '0;
-      glyph_y_d <= '0;
+      request_en <= 1'b0;
+      render_en <= 1'b0;
+      request_glyph_x <= '0;
+      request_glyph_y <= '0;
+      render_glyph_x <= '0;
+      render_glyph_y <= '0;
     end else begin
-      cell_read_col <= lcd_x >> CHAR_WIDTH_SIZE;
-      cell_read_row <= lcd_y >> CHAR_HEIGHT_SIZE;
-      lcd_en_d <= lcd_en;
-      glyph_x_d <= lcd_x[CHAR_WIDTH_SIZE-1:0];
-      glyph_y_d <= lcd_y[CHAR_HEIGHT_SIZE-1:0];
+      render_en <= request_en;
+      render_glyph_x <= request_glyph_x;
+      render_glyph_y <= request_glyph_y;
+
+      if (lcd_en) begin
+        cell_read_col <= lcd_x >> CHAR_WIDTH_SIZE;
+        cell_read_row <= lcd_y >> CHAR_HEIGHT_SIZE;
+        request_en <= 1'b1;
+        request_glyph_x <= lcd_x[CHAR_WIDTH_SIZE-1:0];
+        request_glyph_y <= lcd_y[CHAR_HEIGHT_SIZE-1:0];
+      end else begin
+        request_en <= 1'b0;
+        request_glyph_x <= '0;
+        request_glyph_y <= '0;
+      end
     end
   end
   
   always_comb begin
-    glyph_pixel = glyph_row[CHAR_WIDTH - 1 - glyph_x_d];
-    if (lcd_en_d && glyph_pixel) begin
+    glyph_pixel = glyph_row[CHAR_WIDTH - 1 - render_glyph_x];
+    if (render_en && glyph_pixel) begin
       text_pixel_on = 1'b1;
       lcd_r = 5'h1F;
       lcd_g = 6'h3F;
