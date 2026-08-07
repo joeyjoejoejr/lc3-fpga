@@ -19,6 +19,7 @@ module lc3_trap_tb;
   lc3_core dut (
     .clk(clk),
     .reset(reset),
+    .reset_pc(16'h3000),
     .machine_halt(1'b0),
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),
@@ -92,6 +93,7 @@ module lc3_trap_vector_tb;
   lc3_core dut (
     .clk(clk),
     .reset(reset),
+    .reset_pc(16'h3000),
     .machine_halt(1'b0),
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),

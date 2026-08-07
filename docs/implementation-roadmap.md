@@ -22,8 +22,10 @@ done  configurable FPGA init image and Invaders+OS image generation
 done  Invaders+OS Makefile targets and README hardware-smoke notes
 ```
 
-The remaining work is mostly system integration: better physical input,
-optional text rendering, program loading, and eventually a larger memory story.
+The remaining work has shifted toward compatibility with the unmodified course
+OS image. Better physical input, SD loading, and larger memory still matter, but
+the next CPU/system priority is running the real OS boot path instead of custom
+trap shims.
 
 ## 1. Core ALU Instructions
 
@@ -293,7 +295,41 @@ the LC-3 memory map and the external memory.
 
 This is the current recommended order from the present state of the project.
 
-### 9.1 Invaders Hardware Smoke
+### 9.1 Course OS Compatibility
+
+The project should use the same OS image that PennSim loads for the course.
+That makes user programs more reproducible and avoids maintaining one-off trap
+shims for each demo.
+
+Known requirements from the local `lc3os.asm`:
+
+```text
+OS starts at x0200
+user programs start at x3000
+trap vector table lives at x0000-x00FF
+interrupt vector table lives at x0100-x01FF
+OS writes MPR at xFE12
+OS writes TMI at xFE0A
+OS enters user code with JMPT R7
+BAD_INT contains RTI
+```
+
+Suggested implementation order:
+
+```text
+todo  add a reset-PC parameter so OS builds can reset to x0200
+todo  add MPR xFE12 as a readable/writable device register
+todo  implement JMPT as the OS's jump-to-user instruction
+todo  add PSR/privilege state, initially without full protection enforcement
+todo  run a small program through the unmodified OS trap table
+todo  add RTI and interrupt-entry mechanics
+todo  enforce MPR user-mode protection after supervisor/user mode works
+```
+
+See `docs/os-compatibility.md` for the inventory of OS assumptions and missing
+hardware behavior.
+
+### 9.2 Invaders Hardware Smoke
 
 Use Invaders as the main system checkpoint because it exercises nearly every
 existing subsystem at once:
@@ -321,7 +357,7 @@ todo  decide whether reset should clear framebuffer/game RAM or only CPU state
 For now, a power cycle reloads initialized BRAM from the flashed bitstream.
 Button reset resets logic state but does not reload modified memory contents.
 
-### 9.2 On-Screen Text Console
+### 9.3 On-Screen Text Console
 
 Keep the graphics framebuffer and console text as separate concepts:
 
@@ -354,7 +390,7 @@ If UART mirroring is enabled, `DSR` should still be limited by UART TX ready.
 The text console itself should usually be ready every cycle or use a tiny input
 FIFO.
 
-### 9.3 PS/2 Keyboard Input
+### 9.4 PS/2 Keyboard Input
 
 Add direct PS/2 support after the LCD text console because PS/2 depends on
 external wiring and soldering. UART remains the development and debug input
@@ -383,7 +419,7 @@ keyboard_input_mux
 Start with lowercase letters, space, enter, and digits. Then add shifted
 punctuation if course programs need it.
 
-### 9.4 Reset And Memory Initialization Policy
+### 9.5 Reset And Memory Initialization Policy
 
 Decide this deliberately before more demos pile up:
 
@@ -402,7 +438,7 @@ power-cycle or reprogramming to reload BRAM init contents. A reload reset can
 come later through a boot controller that rewrites RAM before releasing the
 core.
 
-### 9.5 SD Card Loader
+### 9.6 SD Card Loader
 
 Use the microSD slot as a loader, not as LC-3 working memory.
 
@@ -420,12 +456,43 @@ Recommended first format:
 ```text
 sector 0:
   magic
+  version
+  entry_pc
+  initial mode/privilege
+  required feature flags
+  display/console/keyboard policy
   section count
-  entry/start policy
-  checksum or simple version field
+  checksum
 
 following sectors:
   section records with LC-3 address + word count + raw 16-bit words
+```
+
+The SD image should be produced by a Mac-side builder that combines the selected
+OS, user program, and manifest. The builder should validate the image against a
+target hardware profile before writing it:
+
+```text
+program manifest says:
+  requires framebuffer, timer, keyboard, real OS
+  entry_pc x0200
+  display framebuffer
+  console uart
+
+target profile says:
+  supports framebuffer, timer, keyboard, real OS, lcd text
+
+builder:
+  accepts the image and writes the feature flags into the header
+```
+
+The FPGA loader should repeat only cheap checks:
+
+```text
+magic/version recognized
+checksum passes
+required feature bits are supported by this bitstream
+sections fit in implemented memory ranges
 ```
 
 Boot flow:
@@ -442,7 +509,7 @@ release LC-3 reset
 Add FAT/file menus only after the raw-sector loader works. A Mac-side formatter
 tool is much simpler than implementing a filesystem in RTL.
 
-### 9.6 Optional Keyboard FIFO
+### 9.7 Optional Keyboard FIFO
 
 The LC-3-style keyboard device is a single-character register. That is simpler
 and more faithful than a typeahead queue:
@@ -464,7 +531,7 @@ Depth 8 or 16 is enough for now. `KBDR` reads pop the FIFO. `KBSR[15]` is set
 when the FIFO is not empty. This can be parameterized so the faithful mode is
 depth 1 and the friendly standalone mode uses a deeper queue.
 
-### 9.7 Memory Expansion
+### 9.8 Memory Expansion
 
 Only move to SDRAM when a concrete program needs more than internal BRAM can
 comfortably provide.
@@ -481,17 +548,14 @@ use internal BRAM for active RAM and keep SD as load-only storage
 When SDRAM becomes necessary, add it behind a ready/valid memory interface and
 test it independently before connecting it to the LC-3 core.
 
-### 9.8 Later / Optional
+### 9.9 Later / Optional
 
 ```text
-RTI
-privilege mode
-memory protection
-interrupts
 native USB keyboard host
 file picker / boot menu
 audio
 HDMI scanout
 ```
 
-Leave these until the basic standalone system is pleasant to use.
+The LC-3 privilege, protection, `RTI`, and interrupt work moved into the OS
+compatibility path above.

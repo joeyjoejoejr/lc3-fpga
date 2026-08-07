@@ -43,6 +43,45 @@ because it is the simplest unary operation.
 After that, add `BR`; branches force you to trust the condition codes and PC
 update path.
 
+## Course OS Compatibility
+
+The compatibility target is no longer just "run user code at `x3000`." For
+course-program reproducibility, the FPGA should be able to load the same OS
+image PennSim uses and start execution at `x0200`.
+
+That changes the system boundary:
+
+```text
+reset PC x0200
+  -> OS initializes MPR and timer interval
+  -> OS executes JMPT R7
+  -> user program starts at x3000
+  -> user program calls TRAP
+  -> trap vector points back into OS routines
+```
+
+The existing `TRAP` implementation already performs the key vector-table
+operation:
+
+```text
+R7 <- PC
+PC <- MEM[ZEXT(trapvect8)]
+```
+
+The missing architectural pieces are around machine mode, not ordinary ALU
+behavior:
+
+```text
+MPR xFE12
+PSR privilege and priority fields
+JMPT jump-to-user behavior
+RTI and interrupt return
+eventual interrupt entry and memory-protection exceptions
+```
+
+Add these in layers. First make the OS boot and run simple trap calls. Then add
+enforcement and interrupts once there is a clear test for each behavior.
+
 ## RGB LCD Video Path
 
 The RGB LCD is not a memory-mapped device by itself. It is a continuously
@@ -269,6 +308,81 @@ not a good replacement for RAM on the CPU memory bus.
 
 Start with raw SPI-mode sector reads and a tiny custom image format. FAT and
 menus are later conveniences.
+
+The SD image should be built on the Mac, not composed by the FPGA. The host-side
+tool can understand assembler outputs, OS variants, board profiles, and helpful
+error messages. The FPGA loader should only do small, deterministic checks:
+
+```text
+host image builder
+  read OS/program objects and manifest
+  validate against a target hardware profile
+  produce one LC-3 boot image
+
+FPGA SD loader
+  check magic/version/checksum
+  compare required feature bits with hardware feature bits
+  copy memory sections
+  apply platform config registers
+  release LC-3 reset
+```
+
+Useful metadata for the boot image header:
+
+```text
+magic/version
+entry_pc
+initial privilege/mode
+memory section count
+required feature flags
+display mode
+console routing
+keyboard policy
+timer policy
+checksum
+```
+
+Memory contents should be represented as addressable sections rather than one
+fixed flat file:
+
+```text
+section address x0000, word count N, data...
+section address x0200, word count N, data...
+section address x3000, word count N, data...
+```
+
+That lets different OSes use different vector, OS, user-code, and data regions
+without changing the loader hardware.
+
+Capability checking belongs mostly in the image builder. For example, the
+builder can reject an Invaders image for a text-only target before anything is
+written to the SD card. The FPGA should still check the image's required feature
+bits so a corrupt or mismatched image fails safely instead of booting into a
+confusing state.
+
+Example feature flags:
+
+```text
+needs_trap_vectors
+needs_real_os
+needs_framebuffer
+needs_text_console
+needs_timer
+needs_keyboard
+needs_mpr
+needs_interrupts
+```
+
+Example platform config fields:
+
+```text
+display = framebuffer | text | disabled
+console = uart | lcd_text | both | disabled
+keyboard = uart | ps2 | both
+```
+
+These are platform choices. LC-3 programs should still see the normal memory
+map and device registers.
 
 ## Reset Policy
 

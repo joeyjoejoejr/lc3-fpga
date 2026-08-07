@@ -125,16 +125,19 @@ initialized image from flash.
 
 ## Suggested Milestones
 
-Most of the original CPU milestones are complete. The next useful milestones
-are documented in detail in `docs/implementation-roadmap.md`, but the short
-version is:
+Most of the original CPU milestones are complete. The next priority is
+compatibility with the unmodified course OS image, so ordinary LC-3 programs can
+use the same trap routines, device registers, and boot path they use in PennSim.
 
-1. Add optional on-screen text console output.
-2. Add direct PS/2 keyboard input.
-3. Decide reset/reload behavior.
-4. Add an SD-card loader for user programs.
-5. Add an optional keyboard FIFO if missed characters become annoying.
-6. Add interrupts/`RTI`/privilege when a program actually needs them.
+The short version is:
+
+1. Boot through the course OS at `x0200` instead of custom trap shims.
+2. Add the OS compatibility pieces: `JMPT`, MPR at `xFE12`, PSR/privilege
+   tracking, and eventually `RTI`/interrupt entry.
+3. Replace the temporary `andme` trap shim with the real OS image.
+4. Keep UART and LCD text output mirrored behind `DSR`/`DDR`.
+5. Add direct PS/2 keyboard input after the OS path is solid.
+6. Add an SD-card loader for user programs.
 7. Consider SDRAM only when a concrete program needs more memory.
 
 ## Style Choice
@@ -151,4 +154,5 @@ for learning value.
 
 - [Implementation roadmap](docs/implementation-roadmap.md)
 - [Architecture notes](docs/architecture-notes.md)
+- [Course OS compatibility notes](docs/os-compatibility.md)
 - [Instruction formats](docs/instruction-formats.md)

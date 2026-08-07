@@ -4,6 +4,7 @@ module lc3_core (
   input  logic        clk,
   input  logic        reset,
   input  logic        machine_halt,
+  input  logic [15:0] reset_pc,
 
   output logic [15:0] mem_addr,
   input  logic [15:0] mem_rdata,
@@ -143,7 +144,7 @@ module lc3_core (
 
   always_ff @(posedge clk) begin
     if (reset) begin
-      pc <= 16'h3000;
+      pc <= reset_pc;
       ir <= 16'h0000;
       state <= STATE_FETCH;
       n <= 1'b0;

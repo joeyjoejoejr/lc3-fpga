@@ -170,8 +170,9 @@ MEM[BaseR + SEXT(offset6)] <- SR
 return from interrupt
 ```
 
-RTI is privileged in the LC-3. It can be left unimplemented until interrupts and
-privilege mode exist.
+RTI is privileged in the LC-3. It is not needed for the first OS boot path, but
+it is part of the course OS compatibility surface because the OS interrupt table
+can vector to a handler that executes `RTI`.
 
 ## NOT
 
@@ -232,6 +233,37 @@ PC <- BaseR
 ```text
 JMP R7
 ```
+
+## JMPT
+
+`JMPT` is a PennSim/course-OS extension used by the local `lc3os.asm` startup
+code to jump from supervisor OS code into user code.
+
+For the inspected OS object:
+
+```text
+JMP  R7  -> xC1C0
+JMPT R7  -> xC1C1
+```
+
+So the instruction shape appears to be the normal `JMP` format with bit 0 set:
+
+```text
+15   12 11 9 8    6 5            1 0
++-------+----+------+-------------+-+
+| 1100  |000 | BaseR| 00000       |1|
++-------+----+------+-------------+-+
+```
+
+Expected behavior for this project:
+
+```text
+PC <- BaseR
+enter user mode
+```
+
+The exact privilege state should be represented through the PSR model described
+in `docs/os-compatibility.md`.
 
 ## Reserved
 

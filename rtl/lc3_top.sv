@@ -3,6 +3,7 @@
 module lc3_top #(
   parameter INIT_FILE = "programs/top/lc3_uart_echo.hex",
   parameter FRAMEBUFFER_INIT_FILE = "",
+  parameter logic [15:0] RESET_PC = 16'h3000,
   parameter int RAM_WORDS = 16'h3200,
   parameter bit TEXT_CONSOLE_MODE = 1'b0
 ) (
@@ -66,6 +67,7 @@ module lc3_top #(
   lc3_core core (
     .clk(clk),
     .reset(reset),
+    .reset_pc(RESET_PC),
     .machine_halt(machine_halt),
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),

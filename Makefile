@@ -14,6 +14,7 @@ FPGA_FREQ_MHZ ?= 27
 FPGA_CST ?= constraints/lc3_lcd.cst
 FPGA_RAM_WORDS ?= 12800
 FPGA_TEXT_CONSOLE_MODE ?= 0
+FPGA_RESET_PC ?= 16'h3000
 FPGA_BUILD := sim/fpga
 INVADERS_INIT_HEX := programs/top/invaders_with_p3os.hex
 INVADERS_RAM_WORDS := 13056
@@ -88,11 +89,14 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
+.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
 
-test: test-fetch test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx
+test: test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
+	@$(RUN_VVP) $<
+
+test-reset-pc: $(BUILD)/lc3_reset_pc_tb.vvp
 	@$(RUN_VVP) $<
 
 test-add: $(BUILD)/lc3_add_tb.vvp $(ADD_HEX)
@@ -258,6 +262,10 @@ $(BUILD)/lc3_core_tb.vvp: $(RTL) tb/lc3_core_tb.sv tb/tb_helpers.svh programs/fe
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_core_tb.sv $(RTL)
 
+$(BUILD)/lc3_reset_pc_tb.vvp: $(RTL) tb/lc3_reset_pc_tb.sv tb/tb_helpers.svh
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_reset_pc_tb.sv $(RTL)
+
 $(BUILD)/lc3_add_tb.vvp: $(RTL) tb/lc3_add_tb.sv tb/tb_helpers.svh $(ADD_HEX)
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_add_tb.sv $(RTL)
@@ -384,7 +392,7 @@ programs/top/andme_with_os.hex: scripts/combine_lc3_hex.py programs/top/andme_tr
 
 $(FPGA_BUILD)/$(FPGA_TOP).json: $(TOP_RTL) $(TOP_HEX) $(FPGA_INIT_HEX) $(FPGA_CST) | fpga-tools
 	@mkdir -p $(FPGA_BUILD)
-	$(YOSYS) -p "read_verilog -sv $(TOP_RTL); chparam -set INIT_FILE \"$(FPGA_INIT_HEX)\" -set RAM_WORDS $(FPGA_RAM_WORDS) -set TEXT_CONSOLE_MODE $(FPGA_TEXT_CONSOLE_MODE) $(FPGA_TOP); synth_gowin -family $(FPGA_FAMILY) -top $(FPGA_TOP) -json $@"
+	$(YOSYS) -p "read_verilog -sv $(TOP_RTL); chparam -set INIT_FILE \"$(FPGA_INIT_HEX)\" -set RESET_PC $(FPGA_RESET_PC) -set RAM_WORDS $(FPGA_RAM_WORDS) -set TEXT_CONSOLE_MODE $(FPGA_TEXT_CONSOLE_MODE) $(FPGA_TOP); synth_gowin -family $(FPGA_FAMILY) -top $(FPGA_TOP) -json $@"
 
 $(FPGA_BUILD)/$(FPGA_TOP)_pnr.json: $(FPGA_BUILD)/$(FPGA_TOP).json $(FPGA_CST) | fpga-tools
 	$(NEXTPNR_GOWIN) --json $< --write $@ --device $(FPGA_DEVICE) --vopt family=$(FPGA_PACK_DEVICE) --vopt cst=$(FPGA_CST) --freq $(FPGA_FREQ_MHZ)
