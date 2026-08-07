@@ -89,7 +89,7 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
+.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-jmpt test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
 
 test: test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx
 
@@ -139,6 +139,9 @@ test-jsr: $(BUILD)/lc3_jsr_tb.vvp $(JUMP_HEX)
 	@$(RUN_VVP) $<
 
 test-jsrr: $(BUILD)/lc3_jsrr_tb.vvp $(JUMP_HEX)
+	@$(RUN_VVP) $<
+
+test-jmpt: $(BUILD)/lc3_jmpt_tb.vvp
 	@$(RUN_VVP) $<
 
 test-ldi: $(BUILD)/lc3_ldi_tb.vvp $(LDI_HEX)
@@ -324,6 +327,10 @@ $(BUILD)/lc3_jsr_tb.vvp: $(RTL) tb/lc3_jump_tb.sv tb/tb_helpers.svh $(JUMP_HEX)
 $(BUILD)/lc3_jsrr_tb.vvp: $(RTL) tb/lc3_jump_tb.sv tb/tb_helpers.svh $(JUMP_HEX)
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -s lc3_jsrr_tb -o $@ tb/lc3_jump_tb.sv $(RTL)
+
+$(BUILD)/lc3_jmpt_tb.vvp: $(RTL) tb/lc3_jmpt_tb.sv tb/tb_helpers.svh
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_jmpt_tb.sv $(RTL)
 
 $(BUILD)/lc3_ldi_tb.vvp: $(RTL) tb/lc3_ldi_tb.sv tb/tb_helpers.svh $(LDI_HEX)
 	@mkdir -p $(BUILD)
