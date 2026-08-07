@@ -14,6 +14,8 @@ module lc3_privilege_user_tb;
   logic [15:0] psr;
   integer      cycle;
   logic        saw_user_mode;
+  logic        saw_trap_x22;
+  logic        saw_rtt_return;
 
   always #5 clk = ~clk;
 
@@ -40,16 +42,20 @@ module lc3_privilege_user_tb;
   );
 
   initial begin
-    memory.mem[16'h0025] = 16'h3100; // HALT trap vector
+    memory.mem[16'h0022] = 16'h3100; // PUTS trap vector, used as generic trap
+    memory.mem[16'h0025] = 16'h3101; // HALT trap vector
 
     memory.mem[16'h0200] = 16'h2E01; // LD R7, USER_CODE_ADDR
     memory.mem[16'h0201] = 16'hC1C1; // JMPT R7
     memory.mem[16'h0202] = 16'h3000; // USER_CODE_ADDR
 
     memory.mem[16'h3000] = 16'h1265; // ADD R1, R1, #5
-    memory.mem[16'h3001] = 16'hF025; // TRAP x25
+    memory.mem[16'h3001] = 16'hF022; // TRAP x22
+    memory.mem[16'h3002] = 16'h14A1; // ADD R2, R2, #1
+    memory.mem[16'h3003] = 16'hF025; // TRAP x25
 
-    memory.mem[16'h3100] = 16'hD000; // unsupported opcode, used as test halt
+    memory.mem[16'h3100] = 16'hC1C1; // RTT R7
+    memory.mem[16'h3101] = 16'hD000; // unsupported opcode, used as test halt
   end
 
   initial begin
@@ -59,6 +65,8 @@ module lc3_privilege_user_tb;
     end
 
     saw_user_mode = 1'b0;
+    saw_trap_x22 = 1'b0;
+    saw_rtt_return = 1'b0;
     repeat (2) @(posedge clk);
 
     if (psr !== 16'h8002) begin
@@ -87,17 +95,49 @@ module lc3_privilege_user_tb;
         saw_user_mode = 1'b1;
       end
 
+      if (pc == 16'h3101 && ir == 16'hC1C1) begin
+        if (dut.regs[7] !== 16'h3002 ||
+            psr[15] !== 1'b1 ||
+            psr[2:0] !== 3'b001) begin
+          $display("%s[FAIL]%s %-14s TRAP x22 should enter supervisor mode",
+                   TB_RED, TB_RESET, "priv_user");
+          $display("       actual   PC=%04h IR=%04h R7=%04h PSR=%04h",
+                   pc, ir, dut.regs[7], psr);
+          $display("       expected PC=3101 IR=C1C1 R7=3002 PSR[15]=1 PSR[2:0]=001");
+          $fatal(1);
+        end
+
+        saw_trap_x22 = 1'b1;
+      end
+
+      if (pc == 16'h3003 && dut.regs[2] == 16'h0001) begin
+        if (!saw_trap_x22 ||
+            psr[15] !== 1'b0 ||
+            psr[2:0] !== 3'b001) begin
+          $display("%s[FAIL]%s %-14s RTT should return from TRAP x22 to user mode",
+                   TB_RED, TB_RESET, "priv_user");
+          $display("       actual   saw_x22=%0d PC=%04h IR=%04h R2=%04h PSR=%04h",
+                   saw_trap_x22, pc, ir, dut.regs[2], psr);
+          $display("       expected saw_x22=1 PSR[15]=0 PSR[2:0]=001");
+          $fatal(1);
+        end
+
+        saw_rtt_return = 1'b1;
+      end
+
       if (dut.halted) begin
         if (!saw_user_mode ||
-            pc !== 16'h3101 ||
+            !saw_trap_x22 ||
+            !saw_rtt_return ||
+            pc !== 16'h3102 ||
             ir !== 16'hD000 ||
-            dut.regs[7] !== 16'h3002 ||
+            dut.regs[7] !== 16'h3004 ||
             psr[15] !== 1'b1 ||
             psr[2:0] !== 3'b001) begin
           $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, "priv_user");
-          $display("       actual   saw_user=%0d PC=%04h IR=%04h R7=%04h PSR=%04h",
-                   saw_user_mode, pc, ir, dut.regs[7], psr);
-          $display("       expected saw_user=1 PC=3101 IR=D000 R7=3002 PSR[15]=1 PSR[2:0]=001");
+          $display("       actual   saw_user=%0d saw_x22=%0d saw_rtt=%0d PC=%04h IR=%04h R7=%04h PSR=%04h",
+                   saw_user_mode, saw_trap_x22, saw_rtt_return, pc, ir, dut.regs[7], psr);
+          $display("       expected saw_user=1 saw_x22=1 saw_rtt=1 PC=3102 IR=D000 R7=3004 PSR[15]=1 PSR[2:0]=001");
           $fatal(1);
         end
 

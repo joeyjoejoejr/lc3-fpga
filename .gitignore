@@ -8,6 +8,18 @@ sim/*.vcd
 *.sym
 *.hex
 
+# Generated LC-3 OS/probe artifacts
+programs/os/*.obj
+programs/os/*.sym
+programs/os/*.hex
+programs/privilege/*.obj
+programs/privilege/*.sym
+programs/privilege/*.hex
+programs/top/*_with_os.hex
+programs/top/*_with_p3os.hex
+external/LC3Programs/**/*.obj
+external/LC3Programs/**/*.sym
+
 # FPGA build outputs
 build/
 impl/

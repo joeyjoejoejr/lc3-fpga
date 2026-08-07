@@ -260,7 +260,7 @@ module lc3_core (
           regs[7] <= pc;
           pc <= mem_rdata;
           state <= STATE_FETCH;
-          if(is_jmpt_or_rtt) psr[15] <= 1'b1;
+          psr[15] <= 1'b1;
         end
 
         default: begin
