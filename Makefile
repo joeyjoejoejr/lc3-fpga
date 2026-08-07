@@ -18,10 +18,14 @@ FPGA_RESET_PC ?= 12288
 FPGA_BUILD := sim/fpga
 INVADERS_INIT_HEX := programs/top/invaders_with_p3os.hex
 INVADERS_RAM_WORDS := 13056
+P3OS_OBJ ?= external/LC3Programs/Invaders/p3os.obj
+P3OS_RTT_OBJ ?= programs/os/p3os_rtt.obj
 INVADERS_FPGA_BUILD := sim/fpga-invaders
 ANDME_INIT_HEX := programs/top/andme_with_os.hex
 ANDME_FPGA_BUILD := sim/fpga-andme
 ANDME_OS_OBJ ?= /Users/josephjackson/src/ECE-109-Pogram-1-main/lc3os.obj
+ANDME_OS_RTT_OBJ ?= programs/os/lc3os_rtt.obj
+ANDME_OS_RTT_ASM ?= programs/os/lc3os_rtt.asm
 ANDME_RESET_PC ?= 512
 TX_FPGA_TOP ?= tx_top
 TX_FPGA_CST ?= constraints/tx_test.cst
@@ -42,6 +46,7 @@ IVERILOG_WARNINGS := -Wall -Wimplicit -Wportbind -Wsensitivity-entire-vector -Ws
 IVERILOG_FLAGS ?= -g2012 $(IVERILOG_WARNINGS)
 PENNSIM_AS := scripts/assemble_with_pennsim.sh
 OBJ_TO_HEX := scripts/lc3_obj_to_hex.py
+PATCH_OS_RTT := scripts/patch_os_ret_to_rtt.py
 FPGA_INIT_HEX ?= programs/top/lc3_uart_echo.hex
 
 RTL := rtl/lc3_core.sv rtl/lc3_memory.sv
@@ -91,7 +96,7 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-jmpt test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
+.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-jmpt test-rtt test-privilege-user test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
 
 test: test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx
 
@@ -144,6 +149,12 @@ test-jsrr: $(BUILD)/lc3_jsrr_tb.vvp $(JUMP_HEX)
 	@$(RUN_VVP) $<
 
 test-jmpt: $(BUILD)/lc3_jmpt_tb.vvp
+	@$(RUN_VVP) $<
+
+test-rtt: $(BUILD)/lc3_rtt_tb.vvp
+	@$(RUN_VVP) $<
+
+test-privilege-user: $(BUILD)/lc3_privilege_user_tb.vvp
 	@$(RUN_VVP) $<
 
 test-ldi: $(BUILD)/lc3_ldi_tb.vvp $(LDI_HEX)
@@ -337,6 +348,14 @@ $(BUILD)/lc3_jmpt_tb.vvp: $(RTL) tb/lc3_jmpt_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_jmpt_tb.sv $(RTL)
 
+$(BUILD)/lc3_rtt_tb.vvp: $(RTL) tb/lc3_rtt_tb.sv tb/tb_helpers.svh
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_rtt_tb.sv $(RTL)
+
+$(BUILD)/lc3_privilege_user_tb.vvp: $(RTL) tb/lc3_privilege_user_tb.sv tb/tb_helpers.svh
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_privilege_user_tb.sv $(RTL)
+
 $(BUILD)/lc3_ldi_tb.vvp: $(RTL) tb/lc3_ldi_tb.sv tb/tb_helpers.svh $(LDI_HEX)
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_ldi_tb.sv $(RTL)
@@ -407,11 +426,14 @@ programs/top/framebuffer_smoke.hex: scripts/make_framebuffer_smoke_hex.py
 programs/top/lc3_uart_echo.hex: scripts/make_lc3_uart_echo_hex.py
 	@python3 $<
 
-programs/top/invaders_with_p3os.hex: scripts/combine_lc3_hex.py external/LC3Programs/Invaders/p3os.obj programs/top/invaders.obj
-	@python3 $< $@ external/LC3Programs/Invaders/p3os.obj programs/top/invaders.obj
+$(P3OS_RTT_OBJ): $(PATCH_OS_RTT) $(P3OS_OBJ)
+	@python3 $< $(P3OS_OBJ) $@
 
-programs/top/andme_with_os.hex: scripts/combine_lc3_hex.py $(ANDME_OS_OBJ) programs/top/andme.obj
-	@python3 $< $@ $(ANDME_OS_OBJ) programs/top/andme.obj
+programs/top/invaders_with_p3os.hex: scripts/combine_lc3_hex.py $(P3OS_RTT_OBJ) programs/top/invaders.obj
+	@python3 $< $@ $(P3OS_RTT_OBJ) programs/top/invaders.obj
+
+programs/top/andme_with_os.hex: scripts/combine_lc3_hex.py $(ANDME_OS_RTT_ASM) $(ANDME_OS_RTT_OBJ) programs/top/andme.obj
+	@python3 $< $@ $(ANDME_OS_RTT_OBJ) programs/top/andme.obj
 
 $(FPGA_BUILD)/$(FPGA_TOP).json: $(TOP_RTL) $(TOP_HEX) $(FPGA_INIT_HEX) $(FPGA_CST) | fpga-tools
 	@mkdir -p $(FPGA_BUILD)
@@ -484,4 +506,4 @@ wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) $(FPGA_BUILD) $(INVADERS_FPGA_BUILD) $(ANDME_FPGA_BUILD) $(TX_FPGA_BUILD) $(ECHO_FPGA_BUILD) $(RX_PROBE_FPGA_BUILD) $(LCD_COLOR_BUILD) $(LCD_TEXT_CONSOLE_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/sti/*.obj programs/sti/*.sym programs/sti/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex
+	rm -rf $(BUILD) $(FPGA_BUILD) $(INVADERS_FPGA_BUILD) $(ANDME_FPGA_BUILD) $(TX_FPGA_BUILD) $(ECHO_FPGA_BUILD) $(RX_PROBE_FPGA_BUILD) $(LCD_COLOR_BUILD) $(LCD_TEXT_CONSOLE_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex programs/privilege/*.obj programs/privilege/*.sym programs/privilege/*.hex programs/os/*.obj programs/os/*.sym programs/os/*.hex

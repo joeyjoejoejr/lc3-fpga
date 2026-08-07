@@ -12,7 +12,8 @@ module lc3_core (
   output logic        mem_we,
 
   output logic [15:0] pc,
-  output logic [15:0] ir
+  output logic [15:0] ir,
+  output logic [15:0] psr
 );
   typedef enum logic [4:0] {
     STATE_FETCH,
@@ -50,9 +51,6 @@ module lc3_core (
 
   state_t state, return_state;
   logic [15:0] regs [0:7];
-  logic n;
-  logic z;
-  logic p;
   logic halted;
   integer i;
 
@@ -67,6 +65,7 @@ module lc3_core (
   logic is_imm;
   logic [15:0] imm5;
   logic is_jsr;
+  logic is_jmpt_or_rtt;
 
   // BR
   logic [2:0] nzp;
@@ -102,6 +101,7 @@ module lc3_core (
   assign sr2 = ir[2:0];
   assign imm5 = {{11{ir[4]}}, ir[4:0]};
   assign is_jsr = ir[11];
+  assign is_jmpt_or_rtt = ir[0];
 
   assign nzp = ir[11:9];
   assign pc_offset9 = {{7{ir[8]}}, ir[8:0]};
@@ -147,9 +147,6 @@ module lc3_core (
       pc <= reset_pc;
       ir <= 16'h0000;
       state <= STATE_FETCH;
-      n <= 1'b0;
-      z <= 1'b1;
-      p <= 1'b0;
       for (i = 0; i < 8; i = i + 1) begin
         regs[i] <= 16'h0000;
       end
@@ -157,6 +154,7 @@ module lc3_core (
       mem_wdata <= 16'h0000;
       mem_we <= 1'b0;
       return_state <= STATE_HALT;
+      psr <= 16'h8002;
     end else if (machine_halt) begin
     end else begin
       case (state)
@@ -188,18 +186,18 @@ module lc3_core (
         end
 
         STATE_EXEC_BR: begin
-          if(|(nzp & {n,z,p})) pc <= pc_offset_addr;
+          if(|(nzp & psr[2:0])) pc <= pc_offset_addr;
           state <= STATE_FETCH;
         end
 
         STATE_EXEC_ALU: begin
-          { n, z, p } <= flags_for(alu_result);
+          psr[2:0] <= flags_for(alu_result);
           regs[dr] <= alu_result;
           state <= STATE_FETCH;
         end
 
         STATE_EXEC_LEA: begin
-          { n, z, p } <= flags_for(lea_result);
+          psr[2:0] <= flags_for(lea_result);
           regs[dr] <= lea_result;
           state <= STATE_FETCH;
         end
@@ -215,7 +213,7 @@ module lc3_core (
         STATE_MEM_WAIT: state <= return_state;
 
         STATE_REG_WRITEBACK: begin
-          { n, z, p } <= flags_for(mem_rdata);
+          psr[2:0] <= flags_for(mem_rdata);
           regs[dr] <= mem_rdata;
           state <= STATE_FETCH;
         end
@@ -237,6 +235,7 @@ module lc3_core (
         STATE_EXEC_JMP: begin
           pc <= regs[br];
           state <= STATE_FETCH;
+          if(is_jmpt_or_rtt) psr[15] <= 1'b0;
         end
 
         STATE_EXEC_JSR: begin
@@ -261,6 +260,7 @@ module lc3_core (
           regs[7] <= pc;
           pc <= mem_rdata;
           state <= STATE_FETCH;
+          if(is_jmpt_or_rtt) psr[15] <= 1'b1;
         end
 
         default: begin

@@ -93,7 +93,7 @@ For a first compatibility pass, it is reasonable to add the state before
 enforcing every rule:
 
 ```text
-PSR[15]    privilege: 0 supervisor, 1 user
+PSR[15]    privilege: 1 supervisor, 0 user
 PSR[10:8] interrupt priority
 PSR[2:0]  condition codes
 MPR[n]     user access allowed for page n, where each page is x1000 words
@@ -102,10 +102,19 @@ MPR[n]     user access allowed for page n, where each page is x1000 words
 Suggested staged behavior:
 
 1. Add `MPR` as a readable/writable register, but do not enforce it yet.
-2. Add `JMPT` so the OS can jump to `x3000` and mark execution as user mode.
-3. Keep existing condition-code registers, but document their PSR mapping.
-4. Add memory-protection checks once supervisor/user mode exists.
-5. Add exceptions only after there is a working supervisor entry path.
+2. Add `JMPT` so the OS can jump to `x3000` and clear the privilege bit.
+3. Patch OS trap-return `RET` instructions to `RTT` for FPGA smoke images.
+4. Keep existing condition-code registers, but document their PSR mapping.
+5. Add memory-protection checks once supervisor/user mode exists.
+6. Add exceptions only after there is a working supervisor entry path.
+
+The course OS family commonly uses plain `RET` (`xC1C0`) in trap handlers.
+PennSim shows that this leaves execution in supervisor mode after trap return.
+For stricter protected-mode compatibility, FPGA smoke images are built from OS
+artifacts where those `RET` words are changed to `RTT` (`xC1C1`). The course
+`lc3os` source is kept in-repo as `programs/os/lc3os_rtt.asm` with those edits.
+For `p3os`, only an object file is available locally, so
+`scripts/patch_os_ret_to_rtt.py` generates the patched object mechanically.
 
 The OS writes `MPR = x0FF8`, which permits user access to `x3000-xBFFF`. That
 matches normal user code and stack, but it deliberately excludes OS memory,
@@ -143,9 +152,10 @@ working.
 1. Add a core/top parameter for reset PC, then run the OS image from `x0200`.
 2. Add a test that executes the OS boot sequence through `JMPT R7`.
 3. Add `MPR` read/write support at `xFE12`, initially without enforcement.
-4. Add `JMPT` decode/execute as a `JMP` variant that also enters user mode.
+4. Add `JMPT` decode/execute as a `JMP` variant that also enters user mode
+   by clearing `PSR[15]`.
 5. Add a PSR/privilege skeleton and map existing NZP flags into PSR bits.
-6. Replace temporary trap-vector shims with the unmodified OS object.
+6. Replace temporary trap-vector shims with the generated RTT-patched OS object.
 7. Add tests for GETC, OUT, PUTS, PUTSP, and HALT through the real OS.
 8. Add `RTI` and interrupt-entry mechanics.
 9. Add memory-protection enforcement and exception behavior.

@@ -60,15 +60,15 @@ module lc3_str_tb;
             memory.mem[16'h3009] !== 16'hFFFF ||
             dut.regs[1] !== 16'h0007 ||
             dut.regs[2] !== 16'hFFFF ||
-            dut.n !== 1'b0 ||
-            dut.z !== 1'b0 ||
-            dut.p !== 1'b1) begin
+            dut.psr[2] !== 1'b0 ||
+            dut.psr[1] !== 1'b0 ||
+            dut.psr[0] !== 1'b1) begin
           $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, "str_smoke");
           $display("       actual   mem[3008]=%04h mem[3009]=%04h R1=%04h R2=%04h",
                    memory.mem[16'h3008], memory.mem[16'h3009], dut.regs[1], dut.regs[2]);
           $display("       expected mem[3008]=%04h mem[3009]=%04h R1=%04h R2=%04h",
                    16'h0007, 16'hFFFF, 16'h0007, 16'hFFFF);
-          print_cc("actual", dut.n, dut.z, dut.p);
+          print_cc("actual", dut.psr[2], dut.psr[1], dut.psr[0]);
           print_cc("expected", 1'b0, 1'b0, 1'b1);
           $fatal(1);
         end

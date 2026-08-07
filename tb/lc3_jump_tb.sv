@@ -69,9 +69,9 @@ module lc3_jump_case #(
             dut.regs[3] !== EXP_R3 ||
             (CHECK_R4 && dut.regs[4] !== EXP_R4) ||
             (CHECK_R7 && dut.regs[7] !== EXP_R7) ||
-            dut.n !== EXP_N ||
-            dut.z !== EXP_Z ||
-            dut.p !== EXP_P) begin
+            dut.psr[2] !== EXP_N ||
+            dut.psr[1] !== EXP_Z ||
+            dut.psr[0] !== EXP_P) begin
           $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, NAME);
           $display("       actual   R1=%04h R2=%04h R3=%04h R4=%04h R7=%04h",
                    dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4], dut.regs[7]);
@@ -80,7 +80,7 @@ module lc3_jump_case #(
                    CHECK_R4 ? "" : " (ignored)",
                    EXP_R7,
                    CHECK_R7 ? "" : " (ignored)");
-          print_cc("actual", dut.n, dut.z, dut.p);
+          print_cc("actual", dut.psr[2], dut.psr[1], dut.psr[0]);
           print_cc("expected", EXP_N, EXP_Z, EXP_P);
           $fatal(1);
         end

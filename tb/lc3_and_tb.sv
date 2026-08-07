@@ -61,13 +61,13 @@ module lc3_and_tb;
             dut.regs[3] !== 16'h0003 ||
             dut.regs[4] !== 16'h0000 ||
             dut.regs[5] !== 16'h0007 ||
-            dut.n !== 1'b0 ||
-            dut.z !== 1'b0 ||
-            dut.p !== 1'b1) begin
+            dut.psr[2] !== 1'b0 ||
+            dut.psr[1] !== 1'b0 ||
+            dut.psr[0] !== 1'b1) begin
           print_case_fail_regs5(
             "and_smoke",
             dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4], dut.regs[5],
-            dut.n, dut.z, dut.p,
+            dut.psr[2], dut.psr[1], dut.psr[0],
             16'h0007, 16'h0003, 16'h0003, 16'h0000, 16'h0007,
             1'b0, 1'b0, 1'b1
           );

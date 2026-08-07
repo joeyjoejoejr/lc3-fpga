@@ -60,15 +60,15 @@ module lc3_ld_tb;
             dut.regs[2] !== 16'h8000 ||
             dut.regs[3] !== 16'h0000 ||
             dut.regs[4] !== 16'h00AA ||
-            dut.n !== 1'b0 ||
-            dut.z !== 1'b0 ||
-            dut.p !== 1'b1) begin
+            dut.psr[2] !== 1'b0 ||
+            dut.psr[1] !== 1'b0 ||
+            dut.psr[0] !== 1'b1) begin
           $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, "ld_smoke");
           $display("       actual   R1=%04h R2=%04h R3=%04h R4=%04h",
                    dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4]);
           $display("       expected R1=%04h R2=%04h R3=%04h R4=%04h",
                    16'h1234, 16'h8000, 16'h0000, 16'h00AA);
-          print_cc("actual", dut.n, dut.z, dut.p);
+          print_cc("actual", dut.psr[2], dut.psr[1], dut.psr[0]);
           print_cc("expected", 1'b0, 1'b0, 1'b1);
           $fatal(1);
         end

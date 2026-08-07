@@ -58,13 +58,13 @@ module lc3_lea_tb;
 
         if (dut.regs[1] !== 16'h3003 ||
             dut.regs[2] !== 16'h3002 ||
-            dut.n !== 1'b0 ||
-            dut.z !== 1'b0 ||
-            dut.p !== 1'b1) begin
+            dut.psr[2] !== 1'b0 ||
+            dut.psr[1] !== 1'b0 ||
+            dut.psr[0] !== 1'b1) begin
           print_case_fail_regs2(
             "lea_smoke",
             dut.regs[1], dut.regs[2],
-            dut.n, dut.z, dut.p,
+            dut.psr[2], dut.psr[1], dut.psr[0],
             16'h3003, 16'h3002,
             1'b0, 1'b0, 1'b1
           );

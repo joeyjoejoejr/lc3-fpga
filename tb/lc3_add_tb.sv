@@ -64,11 +64,11 @@ module lc3_add_case #(
         if (dut.regs[1] !== EXP_R1 || dut.regs[2] !== EXP_R2 ||
             dut.regs[3] !== EXP_R3 || dut.regs[4] !== EXP_R4 ||
             dut.regs[5] !== EXP_R5 ||
-            dut.n !== EXP_N || dut.z !== EXP_Z || dut.p !== EXP_P) begin
+            dut.psr[2] !== EXP_N || dut.psr[1] !== EXP_Z || dut.psr[0] !== EXP_P) begin
           print_case_fail_regs5(
             NAME,
             dut.regs[1], dut.regs[2], dut.regs[3], dut.regs[4], dut.regs[5],
-            dut.n, dut.z, dut.p,
+            dut.psr[2], dut.psr[1], dut.psr[0],
             EXP_R1, EXP_R2, EXP_R3, EXP_R4, EXP_R5,
             EXP_N, EXP_Z, EXP_P
           );
