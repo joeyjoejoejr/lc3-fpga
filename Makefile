@@ -89,9 +89,9 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
+.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
 
-test: test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx
+test: test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -154,6 +154,9 @@ test-trap-vector: $(BUILD)/lc3_trap_vector_tb.vvp $(TRAP_HEX)
 	@$(RUN_VVP) $<
 
 test-memory-controller: $(BUILD)/lc3_memory_controller_tb.vvp
+	@$(RUN_VVP) $<
+
+test-mpr: $(BUILD)/lc3_mpr_tb.vvp
 	@$(RUN_VVP) $<
 
 test-timer: $(BUILD)/lc3_timer_tb.vvp
@@ -341,6 +344,10 @@ $(BUILD)/lc3_trap_vector_tb.vvp: $(RTL) tb/lc3_trap_tb.sv tb/tb_helpers.svh $(TR
 $(BUILD)/lc3_memory_controller_tb.vvp: $(MEMCTL_RTL) tb/lc3_memory_controller_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_memory_controller_tb.sv $(MEMCTL_RTL)
+
+$(BUILD)/lc3_mpr_tb.vvp: $(MEMCTL_RTL) tb/lc3_mpr_tb.sv tb/tb_helpers.svh
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_mpr_tb.sv $(MEMCTL_RTL)
 
 $(BUILD)/lc3_timer_tb.vvp: $(MEMCTL_RTL) tb/lc3_timer_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)

@@ -44,11 +44,13 @@ module lc3_memory_controller #(
   localparam logic [15:0] DDR_ADDR          = 16'hFE06;
   localparam logic [15:0] TMR_ADDR          = 16'hFE08;
   localparam logic [15:0] TMI_ADDR          = 16'hFE0A;
+  localparam logic [15:0] MPR_ADDR          = 16'hFE12;
   localparam logic [15:0] MCR_ADDR          = 16'hFFFE;
 
   logic [15:0] mem [0:RAM_WORDS-1];
   logic [15:0] framebuffer [0:FRAMEBUFFER_WORDS-1];
   logic [15:0] mcr;
+  logic [15:0] mpr;
 
   logic cpu_addr_is_framebuffer;
   logic cpu_addr_is_device;
@@ -124,6 +126,7 @@ module lc3_memory_controller #(
       display_data <= 8'h00;
       cpu_rdata <= 16'd0;
       mcr <= 16'hFFFF;
+      mpr <= 16'h0000;
     end
     else begin
       if (cpu_we && cpu_addr_is_framebuffer) begin
@@ -166,6 +169,10 @@ module lc3_memory_controller #(
           TMI_ADDR: begin
             if(cpu_we) tmi_we <= 1'b1;
             else cpu_rdata <= tmi_value;
+          end
+          MPR_ADDR: begin
+            if(cpu_we) mpr <= cpu_wdata;
+            else cpu_rdata <= mpr;
           end
           MCR_ADDR: begin
             if(cpu_we) mcr <= cpu_wdata;
