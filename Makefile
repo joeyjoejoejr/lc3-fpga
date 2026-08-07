@@ -14,13 +14,15 @@ FPGA_FREQ_MHZ ?= 27
 FPGA_CST ?= constraints/lc3_lcd.cst
 FPGA_RAM_WORDS ?= 12800
 FPGA_TEXT_CONSOLE_MODE ?= 0
-FPGA_RESET_PC ?= 16'h3000
+FPGA_RESET_PC ?= 12288
 FPGA_BUILD := sim/fpga
 INVADERS_INIT_HEX := programs/top/invaders_with_p3os.hex
 INVADERS_RAM_WORDS := 13056
 INVADERS_FPGA_BUILD := sim/fpga-invaders
 ANDME_INIT_HEX := programs/top/andme_with_os.hex
 ANDME_FPGA_BUILD := sim/fpga-andme
+ANDME_OS_OBJ ?= /Users/josephjackson/src/ECE-109-Pogram-1-main/lc3os.obj
+ANDME_RESET_PC ?= 512
 TX_FPGA_TOP ?= tx_top
 TX_FPGA_CST ?= constraints/tx_test.cst
 TX_FPGA_BUILD := sim/fpga-tx
@@ -89,9 +91,9 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-jmpt test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
+.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-jmpt test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
 
-test: test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-uart-tx test-uart-rx
+test: test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -183,6 +185,9 @@ test-display-bridge: $(BUILD)/lc3_display_bridge_tb.vvp
 test-top: $(BUILD)/lc3_top_tb.vvp $(TOP_HEX)
 	@$(RUN_VVP) $<
 
+test-andme-os: $(BUILD)/lc3_andme_os_tb.vvp $(ANDME_INIT_HEX)
+	@$(RUN_VVP) $<
+
 test-uart-tx: $(BUILD)/uart_tx_tb.vvp
 	@$(RUN_VVP) $<
 
@@ -216,13 +221,13 @@ invaders-flash: $(INVADERS_INIT_HEX)
 	$(MAKE) fpga-flash FPGA_INIT_HEX=$(INVADERS_INIT_HEX) FPGA_RAM_WORDS=$(INVADERS_RAM_WORDS) FPGA_BUILD=$(INVADERS_FPGA_BUILD)
 
 andme-bitstream: $(ANDME_INIT_HEX)
-	$(MAKE) fpga-bitstream FPGA_INIT_HEX=$(ANDME_INIT_HEX) FPGA_TEXT_CONSOLE_MODE=1 FPGA_BUILD=$(ANDME_FPGA_BUILD)
+	$(MAKE) fpga-bitstream FPGA_INIT_HEX=$(ANDME_INIT_HEX) FPGA_RESET_PC=$(ANDME_RESET_PC) FPGA_TEXT_CONSOLE_MODE=1 FPGA_BUILD=$(ANDME_FPGA_BUILD)
 
 andme-program: $(ANDME_INIT_HEX)
-	$(MAKE) fpga-program FPGA_INIT_HEX=$(ANDME_INIT_HEX) FPGA_TEXT_CONSOLE_MODE=1 FPGA_BUILD=$(ANDME_FPGA_BUILD)
+	$(MAKE) fpga-program FPGA_INIT_HEX=$(ANDME_INIT_HEX) FPGA_RESET_PC=$(ANDME_RESET_PC) FPGA_TEXT_CONSOLE_MODE=1 FPGA_BUILD=$(ANDME_FPGA_BUILD)
 
 andme-flash: $(ANDME_INIT_HEX)
-	$(MAKE) fpga-flash FPGA_INIT_HEX=$(ANDME_INIT_HEX) FPGA_TEXT_CONSOLE_MODE=1 FPGA_BUILD=$(ANDME_FPGA_BUILD)
+	$(MAKE) fpga-flash FPGA_INIT_HEX=$(ANDME_INIT_HEX) FPGA_RESET_PC=$(ANDME_RESET_PC) FPGA_TEXT_CONSOLE_MODE=1 FPGA_BUILD=$(ANDME_FPGA_BUILD)
 
 tx-bitstream: $(TX_FPGA_BUILD)/$(TX_FPGA_TOP).fs
 
@@ -384,6 +389,10 @@ $(BUILD)/lc3_top_tb.vvp: $(TOP_SIM_RTL) tb/lc3_top_tb.sv tb/tb_helpers.svh $(FPG
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -DSIMULATION -I tb -o $@ tb/lc3_top_tb.sv $(TOP_SIM_RTL)
 
+$(BUILD)/lc3_andme_os_tb.vvp: rtl/lc3_core.sv $(MEMCTL_RTL) tb/lc3_andme_os_tb.sv tb/tb_helpers.svh $(ANDME_INIT_HEX)
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_andme_os_tb.sv rtl/lc3_core.sv $(MEMCTL_RTL)
+
 $(BUILD)/uart_tx_tb.vvp: $(UART_TX_RTL) tb/uart_tx_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/uart_tx_tb.sv $(UART_TX_RTL)
@@ -401,8 +410,8 @@ programs/top/lc3_uart_echo.hex: scripts/make_lc3_uart_echo_hex.py
 programs/top/invaders_with_p3os.hex: scripts/combine_lc3_hex.py external/LC3Programs/Invaders/p3os.obj programs/top/invaders.obj
 	@python3 $< $@ external/LC3Programs/Invaders/p3os.obj programs/top/invaders.obj
 
-programs/top/andme_with_os.hex: scripts/combine_lc3_hex.py programs/top/andme_trap_vectors.obj programs/top/andme_trap_routines.obj programs/top/andme.obj
-	@python3 $< $@ programs/top/andme_trap_vectors.obj programs/top/andme_trap_routines.obj programs/top/andme.obj
+programs/top/andme_with_os.hex: scripts/combine_lc3_hex.py $(ANDME_OS_OBJ) programs/top/andme.obj
+	@python3 $< $@ $(ANDME_OS_OBJ) programs/top/andme.obj
 
 $(FPGA_BUILD)/$(FPGA_TOP).json: $(TOP_RTL) $(TOP_HEX) $(FPGA_INIT_HEX) $(FPGA_CST) | fpga-tools
 	@mkdir -p $(FPGA_BUILD)

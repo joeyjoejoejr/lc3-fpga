@@ -123,6 +123,50 @@ The reset button resets CPU/device state, but it does not reload modified BRAM
 or framebuffer contents. Power cycling after `make invaders-flash` reloads the
 initialized image from flash.
 
+## Real OS Console Smoke
+
+The `andme` build combines the real course OS object with
+`programs/top/andme.asm`, resets the LC-3 at `x0200`, and enables LCD text
+console mode. This is the first small smoke test for booting through an
+unmodified OS before running a user program at `x3000`.
+
+Build the bitstream:
+
+```sh
+make andme-bitstream
+```
+
+Program the board SRAM:
+
+```sh
+make andme-program
+```
+
+Flash the board:
+
+```sh
+make andme-flash
+```
+
+By default, the Makefile expects the course OS object at:
+
+```text
+/Users/josephjackson/src/ECE-109-Pogram-1-main/lc3os.obj
+```
+
+Use another OS object by overriding `ANDME_OS_OBJ`:
+
+```sh
+make andme-bitstream ANDME_OS_OBJ=/path/to/lc3os.obj
+```
+
+The `ANDME_RESET_PC` Make variable is decimal by default to avoid shell quoting
+issues with Verilog literals:
+
+```text
+512 = x0200
+```
+
 ## Suggested Milestones
 
 Most of the original CPU milestones are complete. The next priority is
