@@ -27,6 +27,7 @@ module lc3_rtt_tb;
     .mem_we(mem_we),
     .pc(pc),
     .ir(ir),
+    .mpr(16'hFFFF),
     .psr(psr)
   );
 

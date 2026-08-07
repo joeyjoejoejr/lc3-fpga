@@ -30,6 +30,7 @@ module lc3_privilege_user_tb;
     .mem_we(mem_we),
     .pc(pc),
     .ir(ir),
+    .mpr(16'hFFFF),
     .psr(psr)
   );
 

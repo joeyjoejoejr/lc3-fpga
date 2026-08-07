@@ -37,7 +37,8 @@ module lc3_add_case #(
     .mem_wdata(mem_wdata),
     .mem_we(mem_we),
     .pc(pc),
-    .ir(ir)
+    .ir(ir),
+    .mpr(16'hFFFF)
   );
 
   lc3_memory memory (

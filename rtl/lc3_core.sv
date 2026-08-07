@@ -13,6 +13,7 @@ module lc3_core (
 
   output logic [15:0] pc,
   output logic [15:0] ir,
+  input logic [15:0] mpr,
   output logic [15:0] psr
 );
   typedef enum logic [4:0] {
@@ -142,6 +143,37 @@ module lc3_core (
     flags_for[0] = value != 16'h0000 && !value[15]; //P
   endfunction
 
+  function automatic logic user_can_access(input logic [15:0] addr);
+    user_can_access = psr[15] || mpr[addr[15:12]];
+  endfunction
+
+  task automatic issue_read(input logic [15:0] addr, input state_t next_state);
+    if (!user_can_access(addr)) begin
+      mem_we <= 1'b0;
+      state <= STATE_HALT;
+    end else begin
+      mem_addr <= addr;
+      return_state <= next_state;
+      state <= STATE_MEM_WAIT;
+    end
+  endtask;
+
+  task automatic issue_write(
+    input logic [15:0] addr,
+    input logic [15:0] data,
+    input state_t next_state
+  );
+    if (!user_can_access(addr)) begin
+      mem_we <= 1'b0;
+      state <= STATE_HALT;
+    end else begin
+      mem_addr <= addr;
+      mem_wdata <= data;
+      mem_we <= 1'b1;
+      state <= next_state;
+    end
+  endtask;
+
   always_ff @(posedge clk) begin
     if (reset) begin
       pc <= reset_pc;
@@ -158,11 +190,7 @@ module lc3_core (
     end else if (machine_halt) begin
     end else begin
       case (state)
-        STATE_FETCH: begin
-          mem_addr <= pc;
-          return_state <= STATE_LATCH_IR;
-          state <= STATE_MEM_WAIT;
-        end
+        STATE_FETCH: issue_read(pc, STATE_LATCH_IR);
 
         STATE_LATCH_IR: begin
           ir <= mem_rdata;
@@ -203,11 +231,9 @@ module lc3_core (
         end
 
         STATE_FETCH_MEM: begin
-          if (opcode == OP_LD) mem_addr <= pc_offset_addr;
-          else if (opcode == OP_LDI) mem_addr <= mem_rdata;
-          else mem_addr <= abs_addr;
-          return_state <= STATE_REG_WRITEBACK;
-          state <= STATE_MEM_WAIT;
+          if (opcode == OP_LD) issue_read(pc_offset_addr, STATE_REG_WRITEBACK);
+          else if (opcode == OP_LDI) issue_read(mem_rdata, STATE_REG_WRITEBACK);
+          else issue_read(abs_addr, STATE_REG_WRITEBACK);
         end
 
         STATE_MEM_WAIT: state <= return_state;
@@ -219,12 +245,9 @@ module lc3_core (
         end
 
         STATE_EXEC_STORE: begin
-          mem_wdata <= regs[sr];
-          if (opcode == OP_ST) mem_addr <= pc_offset_addr;
-          else if (opcode == OP_STI) mem_addr <= mem_rdata;
-          else mem_addr <= abs_addr;
-          mem_we <= 1'b1;
-          state <= STATE_WRITE_STORE;
+          if (opcode == OP_ST) issue_write(pc_offset_addr, regs[sr], STATE_WRITE_STORE);
+          else if (opcode == OP_STI) issue_write(mem_rdata, regs[sr], STATE_WRITE_STORE);
+          else issue_write(abs_addr, regs[sr], STATE_WRITE_STORE);
         end
 
         STATE_WRITE_STORE: begin
@@ -246,14 +269,13 @@ module lc3_core (
         end
 
         STATE_FETCH_INDIRECT_PTR: begin
-          mem_addr <= pc_offset_addr;
-          if(opcode == OP_LDI) return_state <= STATE_FETCH_MEM;
+          if(opcode == OP_LDI) issue_read(pc_offset_addr, STATE_FETCH_MEM);
           else if(opcode == OP_TRAP) begin
             mem_addr <= trap_vec;
             return_state <= STATE_EXEC_TRAP;
+            state <= STATE_MEM_WAIT;
           end
-          else return_state <= STATE_EXEC_STORE;
-          state <= STATE_MEM_WAIT;
+          else issue_read(pc_offset_addr, STATE_EXEC_STORE);
         end
 
         STATE_EXEC_TRAP: begin

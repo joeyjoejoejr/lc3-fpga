@@ -26,7 +26,8 @@ module lc3_trap_tb;
     .mem_wdata(mem_wdata),
     .mem_we(mem_we),
     .pc(pc),
-    .ir(ir)
+    .ir(ir),
+    .mpr(16'hFFFF)
   );
 
   lc3_memory memory (
@@ -100,7 +101,8 @@ module lc3_trap_vector_tb;
     .mem_wdata(mem_wdata),
     .mem_we(mem_we),
     .pc(pc),
-    .ir(ir)
+    .ir(ir),
+    .mpr(16'hFFFF)
   );
 
   lc3_memory memory (
