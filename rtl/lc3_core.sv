@@ -32,7 +32,9 @@ module lc3_core (
     STATE_EXEC_JSR,
     STATE_FETCH_INDIRECT_PTR,
     STATE_EXEC_TRAP,
-    STATE_HALT
+    STATE_HALT,
+    STATE_PC_WRITE,
+    STATE_PSR_WRITE
   } state_t;
 
   localparam logic[3:0] OP_BR = 4'b0000;
@@ -43,6 +45,7 @@ module lc3_core (
   localparam logic[3:0] OP_AND = 4'b0101;
   localparam logic[3:0] OP_LDR = 4'b0110;
   localparam logic[3:0] OP_STR = 4'b0111;
+  localparam logic[3:0] OP_RTI = 4'b1000;
   localparam logic[3:0] OP_NOT = 4'b1001;
   localparam logic[3:0] OP_LDI = 4'b1010;
   localparam logic[3:0] OP_STI = 4'b1011;
@@ -67,6 +70,7 @@ module lc3_core (
   logic [15:0] imm5;
   logic is_jsr;
   logic is_jmpt_or_rtt;
+  logic pc_loaded;
 
   // BR
   logic [2:0] nzp;
@@ -187,6 +191,7 @@ module lc3_core (
       mem_we <= 1'b0;
       return_state <= STATE_HALT;
       psr <= 16'h8002;
+      pc_loaded <= 1'b0;
     end else if (machine_halt) begin
     end else begin
       case (state)
@@ -209,6 +214,9 @@ module lc3_core (
             OP_JMP: state <= STATE_EXEC_JMP;
             OP_JSR: state <= STATE_EXEC_JSR;
             OP_TRAP: state <= STATE_FETCH_INDIRECT_PTR;
+            OP_RTI:
+              if(!psr[15]) state <= STATE_HALT;
+              else state <= STATE_FETCH_MEM;
             default: state <= STATE_HALT;
           endcase
         end
@@ -233,10 +241,25 @@ module lc3_core (
         STATE_FETCH_MEM: begin
           if (opcode == OP_LD) issue_read(pc_offset_addr, STATE_REG_WRITEBACK);
           else if (opcode == OP_LDI) issue_read(mem_rdata, STATE_REG_WRITEBACK);
+          else if (opcode == OP_RTI && !pc_loaded) issue_read(regs[6], STATE_PC_WRITE);
+          else if (opcode == OP_RTI && pc_loaded) issue_read(regs[6] + 1, STATE_PSR_WRITE);
           else issue_read(abs_addr, STATE_REG_WRITEBACK);
         end
 
         STATE_MEM_WAIT: state <= return_state;
+
+        STATE_PC_WRITE: begin
+          pc <= mem_rdata;
+          pc_loaded <= 1'b1;
+          state <= STATE_FETCH_MEM;
+        end
+
+        STATE_PSR_WRITE: begin
+          psr <= mem_rdata;
+          pc_loaded <= 1'b0;
+          regs[6] <= regs[6] + 2;
+          state <= STATE_FETCH;
+        end
 
         STATE_REG_WRITEBACK: begin
           psr[2:0] <= flags_for(mem_rdata);
