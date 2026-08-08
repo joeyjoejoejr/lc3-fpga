@@ -314,6 +314,46 @@ OS enters user code with JMPT R7
 BAD_INT contains RTI
 ```
 
+Privilege polarity is a compatibility concern, not a universal LC-3 truth. The
+course OS and PennSim behavior tested locally use:
+
+```text
+PSR[15] = 1  supervisor mode
+PSR[15] = 0  user mode
+```
+
+This was verified with a PennSim probe that sets `MPR = x0FF8`, writes protected
+memory at `x2000` before `JMPT`, then tries the same write after `JMPT`; the
+pre-`JMPT` write succeeds and the post-`JMPT` write raises a protection
+exception. PennSim documentation also describes `PSR[15] = 1` as supervisor
+mode.
+
+Other LC-3/LC-3b references, including Patt-style LC-3b material and some
+extended LC-3 notes, use the opposite polarity:
+
+```text
+PSR[15] = 0  supervisor mode
+PSR[15] = 1  user mode
+```
+
+That means future interrupt/exception work should not bake privilege polarity
+deeply into the core. Add a compatibility mode flag before supporting both
+families of software:
+
+```text
+privilege_mode_pennsim = 1:
+  supervisor when PSR[15] == 1
+  user       when PSR[15] == 0
+
+privilege_mode_pennsim = 0:
+  supervisor when PSR[15] == 0
+  user       when PSR[15] == 1
+```
+
+Use helper predicates such as `is_supervisor_psr(psr)` and
+`is_user_psr(psr)` so `MPR`, `RTI`, `JMPT`, interrupt entry, exception entry,
+and stack switching all share the same polarity policy.
+
 Suggested implementation order:
 
 ```text
@@ -321,6 +361,7 @@ todo  add a reset-PC parameter so OS builds can reset to x0200
 todo  add MPR xFE12 as a readable/writable device register
 todo  implement JMPT as the OS's jump-to-user instruction
 todo  add PSR/privilege state, initially without full protection enforcement
+todo  factor privilege checks through a PennSim-vs-LC3b compatibility flag
 todo  run a small program through the unmodified OS trap table
 todo  add RTI and interrupt-entry mechanics
 todo  enforce MPR user-mode protection after supervisor/user mode works
