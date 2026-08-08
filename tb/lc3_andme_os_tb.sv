@@ -11,6 +11,7 @@ module lc3_andme_os_tb;
   logic        mem_we;
   logic [15:0] pc;
   logic [15:0] ir;
+  logic [15:0] mpr;
 
   logic [15:0] video_pixel;
   logic        machine_halt;
@@ -35,7 +36,7 @@ module lc3_andme_os_tb;
     .mem_we(mem_we),
     .pc(pc),
     .ir(ir),
-    .mpr(16'hFFFF)
+    .mpr(mpr)
   );
 
   lc3_memory_controller #(
@@ -56,6 +57,7 @@ module lc3_andme_os_tb;
     .keyboard_data(keyboard_data),
     .keyboard_ready(keyboard_ready),
     .machine_halt(machine_halt),
+    .mpr(mpr),
     .display_valid(display_valid),
     .display_data(display_data),
     .display_ready(1'b1)
@@ -225,6 +227,13 @@ module lc3_andme_os_tb;
 
     for (cycle = 0; cycle < 20000; cycle = cycle + 1) begin
       @(posedge clk);
+
+      if (pc >= 16'h3000 && mpr !== 16'h0FF8) begin
+        $display("%s[FAIL]%s %-14s OS did not program MPR before user mode",
+                 TB_RED, TB_RESET, "andme_os");
+        $display("       PC=%04h IR=%04h MPR=%04h", pc, ir, mpr);
+        $fatal(1);
+      end
 
       if (machine_halt) begin
         $display("%s[FAIL]%s %-14s halted before transcript completed",

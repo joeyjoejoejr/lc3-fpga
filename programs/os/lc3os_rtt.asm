@@ -567,6 +567,12 @@ TRAP_GETC
 	LDI R0,OS_KBDR		; read it and return
 	RTT
 
+OS_GETC
+	LDI R0,OS_KBSR		; wait for a keystroke
+	BRzp OS_GETC
+	LDI R0,OS_KBDR		; read it and return
+	RET
+
         
 ;;; OUT - Write the character in R0 to the console.
 TRAP_OUT
@@ -577,6 +583,15 @@ TRAP_OUT_WAIT
 	STI R0,OS_DDR		; write the character and return
 	LD R1,OS_OUT_SAVE_R1	; restore R1
 	RTT
+
+OS_OUT
+	ST R1,OS_OUT_SAVE_R1	; save R1
+OS_OUT_WAIT
+	LDI R1,OS_DSR		; wait for the display to be ready
+	BRzp OS_OUT_WAIT
+	STI R0,OS_DDR		; write the character and return
+	LD R1,OS_OUT_SAVE_R1	; restore R1
+	RET
 
                 
 ;;; PUTS - Write a NUL-terminated string of characters to the console,
@@ -590,7 +605,7 @@ TRAP_PUTS
 TRAP_PUTS_LOOP
 	LDR R0,R1,#0		; write characters in string using OUT
 	BRz TRAP_PUTS_DONE
-	OUT
+	JSR OS_OUT
 	ADD R1,R1,#1
 	BRnzp TRAP_PUTS_LOOP
 
@@ -600,19 +615,38 @@ TRAP_PUTS_DONE
 	LD R7,OS_SAVE_R7
 	RTT
 
+OS_PUTS
+	ST R0,OS_SAVE_R0	; save R0, R1, and R7
+	ST R1,OS_SAVE_R1
+	ST R7,OS_SAVE_R7
+	ADD R1,R0,#0		; move string pointer (R0) into R1
+
+OS_PUTS_LOOP
+	LDR R0,R1,#0		; write characters in string using OUT
+	BRz OS_PUTS_DONE
+	JSR OS_OUT
+	ADD R1,R1,#1
+	BRnzp OS_PUTS_LOOP
+
+OS_PUTS_DONE
+	LD R0,OS_SAVE_R0	; restore R0, R1, and R7
+	LD R1,OS_SAVE_R1
+	LD R7,OS_SAVE_R7
+	RET
+
 ;;; IN - prompt the user for a single character input, which is stored
 ;;; in R0 and also echoed to the console.        
 TRAP_IN
 	ST R7,OS_IN_SAVE_R7	; save R7 (no need to save R0, since we 
 				;    overwrite later
 	LEA R0,TRAP_IN_MSG	; prompt for input
-	PUTS
-	GETC			; read a character
-	OUT			; echo back to monitor
+	JSR OS_PUTS
+	JSR OS_GETC		; read a character
+	JSR OS_OUT		; echo back to monitor
 	ST R0,OS_SAVE_R0	; save the character
 	AND R0,R0,#0		; write a linefeed, too
 	ADD R0,R0,#10
-	OUT
+	JSR OS_OUT
 	LD R0,OS_SAVE_R0	; restore the character
 	LD R7,OS_IN_SAVE_R7	; restore R7
 	RTT                     ; return from trap to user mode
@@ -637,7 +671,7 @@ TRAP_PUTSP_LOOP
 	LD R0,LOW_8_BITS	; use mask to get low byte
 	AND R0,R0,R2		; if low byte is NUL, quit printing
 	BRz TRAP_PUTSP_DONE
-	OUT			; otherwise print the low byte
+	JSR OS_OUT		; otherwise print the low byte
 
 	AND R0,R0,#0		; shift high byte into R0
 	ADD R3,R0,#8
@@ -653,7 +687,7 @@ TRAP_PUTSP_MSB_0
 
 	ADD R0,R0,#0		; if high byte is NUL, quit printing
 	BRz TRAP_PUTSP_DONE
-	OUT			; otherwise print the low byte
+	JSR OS_OUT		; otherwise print the low byte
 
 	ADD R1,R1,#1		; and keep going
 	BRnzp TRAP_PUTSP_LOOP

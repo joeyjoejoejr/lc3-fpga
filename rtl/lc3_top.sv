@@ -27,6 +27,7 @@ module lc3_top #(
   logic        mem_we;
   logic [15:0] pc;
   logic [15:0] ir;
+  logic [15:0] mpr;
 
   logic [15:0] video_pixel;
   logic video_en;
@@ -75,7 +76,7 @@ module lc3_top #(
     .mem_we(mem_we),
     .pc(pc),
     .ir(ir),
-    .mpr(16'hFFFF)
+    .mpr(mpr)
   );
 
   lc3_memory_controller #(
@@ -99,7 +100,8 @@ module lc3_top #(
     .display_valid(uart_tx_valid),
     .display_data(uart_tx_data),
     .display_ready(display_ready),
-    .machine_halt(machine_halt)
+    .machine_halt(machine_halt),
+    .mpr(mpr)
   );
 
   uart_rx keyboard_uart (

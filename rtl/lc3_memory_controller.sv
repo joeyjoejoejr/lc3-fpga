@@ -26,6 +26,9 @@ module lc3_memory_controller #(
   // Halt
   output logic        machine_halt,
 
+  // Control registers
+  output logic [15:0] mpr,
+
   // Display / console
   output logic        display_valid,
   output logic [7:0]  display_data,
@@ -50,7 +53,6 @@ module lc3_memory_controller #(
   logic [15:0] mem [0:RAM_WORDS-1];
   logic [15:0] framebuffer [0:FRAMEBUFFER_WORDS-1];
   logic [15:0] mcr;
-  logic [15:0] mpr;
 
   logic cpu_addr_is_framebuffer;
   logic cpu_addr_is_device;
