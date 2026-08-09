@@ -20,6 +20,9 @@ programs/top/*_with_p3os.hex
 external/LC3Programs/**/*.obj
 external/LC3Programs/**/*.sym
 
+# Local scratch probes and experiments
+local/
+
 # FPGA build outputs
 build/
 impl/
