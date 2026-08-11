@@ -69,6 +69,7 @@ module lc3_top #(
     .clk(clk),
     .reset(reset),
     .reset_pc(RESET_PC),
+    .pennsim_privilege_mode(1'b1),
     .machine_halt(machine_halt),
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),

@@ -23,6 +23,7 @@ module lc3_mpr_protection_tb;
     .clk(clk),
     .reset(reset),
     .reset_pc(reset_pc),
+    .pennsim_privilege_mode(1'b1),
     .machine_halt(1'b0),
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),

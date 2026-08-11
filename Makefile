@@ -96,9 +96,9 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-jmpt test-rtt test-rti test-privilege-user test-mpr-protection test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
+.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-jmpt test-rtt test-rti test-privilege-user test-privilege-polarity test-mpr-protection test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
 
-test: test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-jmpt test-rtt test-rti test-privilege-user test-mpr-protection test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx
+test: test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-jmpt test-rtt test-rti test-privilege-user test-privilege-polarity test-mpr-protection test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -158,6 +158,9 @@ test-rti: $(BUILD)/lc3_rti_tb.vvp
 	@$(RUN_VVP) $<
 
 test-privilege-user: $(BUILD)/lc3_privilege_user_tb.vvp
+	@$(RUN_VVP) $<
+
+test-privilege-polarity: $(BUILD)/lc3_privilege_polarity_tb.vvp
 	@$(RUN_VVP) $<
 
 test-mpr-protection: $(BUILD)/lc3_mpr_protection_tb.vvp
@@ -365,6 +368,10 @@ $(BUILD)/lc3_rti_tb.vvp: $(RTL) tb/lc3_rti_tb.sv tb/tb_helpers.svh
 $(BUILD)/lc3_privilege_user_tb.vvp: $(RTL) tb/lc3_privilege_user_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)
 	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_privilege_user_tb.sv $(RTL)
+
+$(BUILD)/lc3_privilege_polarity_tb.vvp: $(RTL) tb/lc3_privilege_polarity_tb.sv tb/tb_helpers.svh
+	@mkdir -p $(BUILD)
+	@$(IVERILOG) $(IVERILOG_FLAGS) -I tb -o $@ tb/lc3_privilege_polarity_tb.sv $(RTL)
 
 $(BUILD)/lc3_mpr_protection_tb.vvp: $(RTL) tb/lc3_mpr_protection_tb.sv tb/tb_helpers.svh
 	@mkdir -p $(BUILD)

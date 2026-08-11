@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module lc3_core (
+module lc3_core(
   input  logic        clk,
   input  logic        reset,
   input  logic        machine_halt,
@@ -14,7 +14,10 @@ module lc3_core (
   output logic [15:0] pc,
   output logic [15:0] ir,
   input logic [15:0] mpr,
-  output logic [15:0] psr
+  output logic [15:0] psr,
+
+  // Configuration
+  input logic pennsim_privilege_mode
 );
   typedef enum logic [4:0] {
     STATE_FETCH,
@@ -148,7 +151,19 @@ module lc3_core (
   endfunction
 
   function automatic logic user_can_access(input logic [15:0] addr);
-    user_can_access = psr[15] || mpr[addr[15:12]];
+    user_can_access = is_supervisor_psr(psr) || mpr[addr[15:12]];
+  endfunction
+
+  function automatic logic is_supervisor_psr(input logic [15:0] value);
+    is_supervisor_psr = pennsim_privilege_mode ? value[15] : !value[15];
+  endfunction
+
+  function automatic logic user_mode_bit();
+    user_mode_bit = ~pennsim_privilege_mode;
+  endfunction
+
+  function automatic logic privilege_mode_bit();
+    privilege_mode_bit = pennsim_privilege_mode;
   endfunction
 
   task automatic issue_read(input logic [15:0] addr, input state_t next_state);
@@ -190,7 +205,8 @@ module lc3_core (
       mem_wdata <= 16'h0000;
       mem_we <= 1'b0;
       return_state <= STATE_HALT;
-      psr <= 16'h8002;
+      psr <= 16'h0002;
+      psr[15] <= privilege_mode_bit();
       pc_loaded <= 1'b0;
     end else if (machine_halt) begin
     end else begin
@@ -215,7 +231,7 @@ module lc3_core (
             OP_JSR: state <= STATE_EXEC_JSR;
             OP_TRAP: state <= STATE_FETCH_INDIRECT_PTR;
             OP_RTI:
-              if(!psr[15]) state <= STATE_HALT;
+              if(!is_supervisor_psr(psr)) state <= STATE_HALT;
               else state <= STATE_FETCH_MEM;
             default: state <= STATE_HALT;
           endcase
@@ -281,7 +297,7 @@ module lc3_core (
         STATE_EXEC_JMP: begin
           pc <= regs[br];
           state <= STATE_FETCH;
-          if(is_jmpt_or_rtt) psr[15] <= 1'b0;
+          if(is_jmpt_or_rtt) psr[15] <= user_mode_bit();
         end
 
         STATE_EXEC_JSR: begin
@@ -305,7 +321,7 @@ module lc3_core (
           regs[7] <= pc;
           pc <= mem_rdata;
           state <= STATE_FETCH;
-          psr[15] <= 1'b1;
+          psr[15] <= privilege_mode_bit();
         end
 
         default: begin

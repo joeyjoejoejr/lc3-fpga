@@ -23,6 +23,7 @@ module lc3_privilege_user_tb;
     .clk(clk),
     .reset(reset),
     .reset_pc(16'h0200),
+    .pennsim_privilege_mode(1'b1),
     .machine_halt(1'b0),
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),

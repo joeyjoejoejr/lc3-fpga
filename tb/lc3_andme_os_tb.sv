@@ -29,6 +29,7 @@ module lc3_andme_os_tb;
     .clk(clk),
     .reset(reset),
     .reset_pc(16'h0200),
+    .pennsim_privilege_mode(1'b1),
     .machine_halt(machine_halt),
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),
