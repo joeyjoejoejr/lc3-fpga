@@ -27,6 +27,36 @@ OS image. Better physical input, SD loading, and larger memory still matter, but
 the next CPU/system priority is running the real OS boot path instead of custom
 trap shims.
 
+## Updated Project Goals
+
+The project is now aiming for one LC-3 system that can run on hardware and also
+act as its own software reference model:
+
+```text
+1. Finish the FPGA build with full keyboard interrupt support.
+2. Use Verilator to build a tier-1 command-line simulator from the RTL.
+3. Build a self-contained native GUI around the same simulated system.
+4. Build a web version from the Verilated model compiled to WebAssembly.
+```
+
+The important constraint is to keep the RTL as the source of truth. The command
+line, native GUI, and web simulator should drive the same Verilated LC-3 design
+rather than growing a second hand-written instruction interpreter.
+
+Timer interrupts are not a required compatibility target yet. The references
+inspected so far agree on keyboard interrupts much more strongly than timer
+interrupts:
+
+```text
+keyboard interrupt: vector x80, IVT entry x0180, enabled by KBSR[14]
+timer polling:      supported through TMR/TSR and TMI/TIR-style registers
+timer interrupt:    simulator/course-specific extension, not a PennSim baseline
+```
+
+For the FPGA, keep the existing polling timer because programs already use it.
+Add timer interrupts only later as an optional platform feature or plugin-like
+device policy.
+
 ## 1. Core ALU Instructions
 
 ```text

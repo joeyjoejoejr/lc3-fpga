@@ -147,6 +147,58 @@ The current keyboard and timer devices are polling-compatible. Interrupts can
 come after the real OS boot path, trap calls, and MPR register behavior are
 working.
 
+### Interrupt Reference Findings
+
+The main open-source LC-3 simulators that clearly implement interrupts agree on
+the architectural outline but differ in policy details:
+
+```text
+common behavior:
+  accept an interrupt only if its priority is higher than PSR[10:8]
+  save PC and PSR on the supervisor stack
+  enter supervisor mode
+  set the new priority
+  load PC from the interrupt vector table
+  return with RTI by restoring PC and PSR
+```
+
+Useful reference points:
+
+```text
+PennSim:
+  strongest compatibility reference for OS layout, MPR, device addresses,
+  privilege polarity, and timer polling, but its interrupt delivery behavior is
+  weak or difficult to observe in the available jar.
+
+lc3web:
+  implements keyboard and display interrupts directly in JavaScript. Keyboard
+  uses IVT entry x0180. It checks interrupts after instruction execution and
+  pushes PC/PSR onto the current R6, without modeling separate user and
+  supervisor stack pointers.
+
+lc3tools:
+  implements interrupt and exception entry as event/micro-op chains, with
+  interrupt enter/exit callbacks and deterministic keyboard interrupt support.
+  It follows the Patt/LC3Tools polarity where PSR[15]=1 means user mode.
+
+complx-tools:
+  implements pending interrupts, priorities, keyboard interrupt vector x80 at
+  priority 4, explicit saved user/supervisor stack pointers, and RTI stack
+  bookkeeping. This is the best source found for stack switching behavior.
+```
+
+For this FPGA, the recommended baseline is:
+
+```text
+keyboard interrupt vector:   x80
+keyboard IVT entry:          x0180
+keyboard priority:           4
+keyboard interrupt enable:   KBSR[14]
+interrupt timing:            check at instruction boundary before next fetch
+stack model:                 add saved USP/SSP and swap R6 on privilege change
+timer interrupts:            defer; keep timer polling as the compatibility path
+```
+
 ## Recommended Implementation Order
 
 1. Add a core/top parameter for reset PC, then run the OS image from `x0200`.
