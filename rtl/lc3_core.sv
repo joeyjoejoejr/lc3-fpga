@@ -1,6 +1,8 @@
 `timescale 1ns/1ps
 
-module lc3_core(
+module lc3_core
+#(parameter logic [15:0] start_ssp = 16'h3000)
+(
   input  logic        clk,
   input  logic        reset,
   input  logic        machine_halt,
@@ -15,6 +17,11 @@ module lc3_core(
   output logic [15:0] ir,
   input logic [15:0] mpr,
   output logic [15:0] psr,
+
+  // Interrupts
+  input logic irq_pending,
+  input logic [2:0] irq_priority,
+  input logic [7:0] irq_vector,
 
   // Configuration
   input logic pennsim_privilege_mode
@@ -37,7 +44,12 @@ module lc3_core(
     STATE_EXEC_TRAP,
     STATE_HALT,
     STATE_PC_WRITE,
-    STATE_PSR_WRITE
+    STATE_PSR_WRITE,
+    STATE_INT_PUSH_PSR,
+    STATE_INT_PUSH_PC,
+    STATE_INT_FETCH_VECTOR,
+    STATE_INT_WRITE_COMPLETE,
+    STATE_INT_SET_PC
   } state_t;
 
   localparam logic[3:0] OP_BR = 4'b0000;
@@ -99,6 +111,10 @@ module lc3_core(
   logic [15:0] alu_result;
 
   logic [15:0] lea_result;
+
+  // stack pointers
+  logic [15:0] ssp;
+  logic [15:0] usp;
 
   assign opcode = ir[15:12];
   assign dr = ir[11:9];
@@ -208,10 +224,22 @@ module lc3_core(
       psr <= 16'h0002;
       psr[15] <= privilege_mode_bit();
       pc_loaded <= 1'b0;
+      ssp <= start_ssp;
+      usp <= '0;
     end else if (machine_halt) begin
     end else begin
       case (state)
-        STATE_FETCH: issue_read(pc, STATE_LATCH_IR);
+        STATE_FETCH: begin
+          // Interrupt handling
+          if (irq_pending && irq_priority > psr[10:8]) begin
+            if (!is_supervisor_psr(psr)) begin
+              usp <= regs[6];
+              regs[6] <= ssp;
+            end
+
+            state <= STATE_INT_PUSH_PSR;
+          end else issue_read(pc, STATE_LATCH_IR);
+        end
 
         STATE_LATCH_IR: begin
           ir <= mem_rdata;
@@ -271,9 +299,12 @@ module lc3_core(
         end
 
         STATE_PSR_WRITE: begin
+          if (!is_supervisor_psr(mem_rdata)) begin
+            ssp <= regs[6] + 2;
+            regs[6] <= usp;
+          end else regs[6] <= regs[6] + 2;
           psr <= mem_rdata;
           pc_loaded <= 1'b0;
-          regs[6] <= regs[6] + 2;
           state <= STATE_FETCH;
         end
 
@@ -322,6 +353,28 @@ module lc3_core(
           pc <= mem_rdata;
           state <= STATE_FETCH;
           psr[15] <= privilege_mode_bit();
+        end
+
+        STATE_INT_PUSH_PSR: begin
+          regs[6] <= regs[6] - 1;
+          issue_write(regs[6] - 1, psr, STATE_INT_PUSH_PC);
+        end
+
+        STATE_INT_PUSH_PC: begin
+          regs[6] <= regs[6] - 1;
+          issue_write(regs[6] - 1, pc, STATE_INT_WRITE_COMPLETE);
+        end
+
+        STATE_INT_WRITE_COMPLETE: begin
+          mem_we <= 0;
+          issue_read(16'h0100 + irq_vector, STATE_INT_SET_PC);
+        end
+
+        STATE_INT_SET_PC: begin
+          pc <= mem_rdata;
+          psr[10:8] <= irq_priority;
+          psr[15] <= privilege_mode_bit();
+          state <= STATE_FETCH;
         end
 
         default: begin

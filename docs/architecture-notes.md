@@ -105,7 +105,7 @@ framebuffer scanout -> RGB pixel -> LCD pins
 The LC-3-visible framebuffer can stay small:
 
 ```text
-xC000-xFDFF: 128-wide framebuffer, 16-bit pixels
+xC000-xFDFF: 128x124 framebuffer, 16-bit pixels
 ```
 
 The LCD is larger than the LC-3 framebuffer. During scanout, convert the current
@@ -116,12 +116,12 @@ fb_x = (video_x - left_margin) / scale
 fb_y = (video_y - top_margin) / scale
 ```
 
-For the 480x272 LCD and a 128x128 LC-3 framebuffer:
+For the 480x272 LCD and a 128x124 LC-3 framebuffer:
 
 ```text
-scale 2: 128x128 becomes 256x256
+scale 2: 128x124 becomes 256x248
 left/right margin: (480 - 256) / 2 = 112
-top/bottom margin: (272 - 256) / 2 = 8
+top/bottom margin: (272 - 248) / 2 = 12
 ```
 
 Pixels outside the scaled framebuffer can be black or a border color. This

@@ -4,6 +4,7 @@ This repository is a collaborative LC-3 FPGA project. Future Codex sessions shou
 
 - Prefer review, tests, and scaffolding before implementing new features. The user often wants to write the RTL changes personally.
 - When the user asks for implementation, keep changes tightly scoped to the requested behavior and existing repo patterns.
+- In explanatory answers, prefer pseudocode and architectural descriptions instead of real RTL/code snippets unless the user explicitly asks for concrete code.
 - For new RTL behavior, prefer adding a focused test target first. It is okay for that target to fail until the user implements the RTL.
 - Keep failing or in-progress tests out of `make test`; once they pass, add them to the main run.
 - Run `make test` before commits when practical, and mention if it was not run.

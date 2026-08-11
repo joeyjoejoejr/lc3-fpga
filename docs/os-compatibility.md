@@ -136,7 +136,7 @@ The interrupt-compatible design needs:
 ```text
 RTI opcode x8000
 supervisor/user mode transitions
-R6 as user stack pointer vs supervisor stack pointer
+USP/SSP storage and R6 stack-pointer swapping
 interrupt vector table at x0100-x01FF
 interrupt priority bits in PSR[10:8]
 keyboard interrupt enable via KBSR[14]
@@ -195,9 +195,72 @@ keyboard IVT entry:          x0180
 keyboard priority:           4
 keyboard interrupt enable:   KBSR[14]
 interrupt timing:            check at instruction boundary before next fetch
-stack model:                 add saved USP/SSP and swap R6 on privilege change
+stack model:                 first interrupt iteration must include USP/SSP
 timer interrupts:            defer; keep timer polling as the compatibility path
 ```
+
+### User And Supervisor Stacks
+
+Real user-mode interrupts cannot safely push the interrupt frame onto the
+currently visible `R6`, because user code uses `R6` as its own stack pointer.
+The core needs hidden user and supervisor stack-pointer storage:
+
+```text
+USP  saved user stack pointer
+SSP  saved supervisor stack pointer
+R6   the currently visible stack pointer for the active mode
+```
+
+On interrupt or exception entry from user mode:
+
+```text
+USP <- R6
+R6  <- SSP
+push old PSR and old PC on the supervisor stack
+SSP/R6 now points at the saved frame
+enter supervisor mode and set PSR[10:8] to the interrupt priority
+PC <- MEM[x0100 + irq_vector]
+```
+
+The stack frame should match the existing `RTI` behavior:
+
+```text
+new R6        points at saved PC
+MEM[new R6]   = interrupted PC
+MEM[new R6+1] = interrupted PSR
+```
+
+So if the old supervisor stack pointer is `x4000`, interrupt entry leaves:
+
+```text
+MEM[x3FFF] = old PSR
+MEM[x3FFE] = old PC
+R6         = x3FFE
+```
+
+On `RTI`, the core restores `PC` and `PSR`, advances the supervisor stack by
+two, and if the restored `PSR` is user mode, saves the new `SSP` and restores
+visible `R6` from `USP`.
+
+The current course OS source does not initialize a supervisor stack. Its
+`OS_START` sets `MPR`, sets `TMI`, loads `R7` with `x3000`, and executes
+`JMPT R7`. It has an `OS_SAVE_R6` word for trap save/restore, but that is not
+a supervisor stack setup.
+
+Near-term policy:
+
+```text
+core/top parameter or boot metadata:
+  provide initial_ssp so the first interrupt implementation has a valid stack
+
+future OS-compatible setup:
+  create an OS variant that initializes R6 to a supervisor stack before JMPT,
+  and have JMPT capture that value into SSP when entering user mode
+```
+
+Long-term SD boot metadata should include `initial_ssp` so different OS images
+can describe their own stack policy without adding a custom LC-3 instruction
+just to write hidden CPU state.
 
 ## Recommended Implementation Order
 
@@ -209,7 +272,7 @@ timer interrupts:            defer; keep timer polling as the compatibility path
 5. Add a PSR/privilege skeleton and map existing NZP flags into PSR bits.
 6. Replace temporary trap-vector shims with the generated RTT-patched OS object.
 7. Add tests for GETC, OUT, PUTS, PUTSP, and HALT through the real OS.
-8. Add `RTI` and interrupt-entry mechanics.
+8. Add `RTI`, `USP`/`SSP`, and interrupt-entry mechanics.
 9. Add memory-protection enforcement and exception behavior.
 
 This keeps the next steps testable while avoiding a jump straight into a large

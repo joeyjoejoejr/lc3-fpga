@@ -12,6 +12,9 @@ module lc3_rti_tb;
   logic [15:0] pc;
   logic [15:0] ir;
   logic [15:0] psr;
+  logic        irq_pending;
+  logic [2:0]  irq_priority;
+  logic [7:0]  irq_vector;
   integer      cycle;
   logic        saw_rti_return;
 
@@ -30,7 +33,10 @@ module lc3_rti_tb;
     .pc(pc),
     .ir(ir),
     .mpr(16'hFFFF),
-    .psr(psr)
+    .psr(psr),
+    .irq_pending(irq_pending),
+    .irq_priority(irq_priority),
+    .irq_vector(irq_vector)
   );
 
   lc3_memory memory (
@@ -63,24 +69,28 @@ module lc3_rti_tb;
     end
 
     saw_rti_return = 1'b0;
+    irq_pending <= 1'b0;
+    irq_priority <= 3'd0;
+    irq_vector <= 8'h00;
     repeat (2) @(posedge clk);
     reset <= 1'b0;
 
     @(posedge clk);
     dut.regs[6] = 16'h4000;
+    dut.usp = 16'h5000;
 
     for (cycle = 0; cycle < 120; cycle = cycle + 1) begin
       @(posedge clk);
 
       if (pc == 16'h3001 && dut.regs[1] == 16'h0005) begin
         if (ir !== 16'h1265 ||
-            dut.regs[6] !== 16'h4002 ||
+            dut.regs[6] !== 16'h5000 ||
             psr !== 16'h0001) begin
           $display("%s[FAIL]%s %-14s supervisor RTI should restore PC, PSR, and R6",
                    TB_RED, TB_RESET, "rti");
           $display("       actual   PC=%04h IR=%04h R1=%04h R6=%04h PSR=%04h",
                    pc, ir, dut.regs[1], dut.regs[6], psr);
-          $display("       expected PC=3001 IR=1265 R1=0005 R6=4002 PSR=0001");
+          $display("       expected PC=3001 IR=1265 R1=0005 R6=5000 PSR=0001");
           $fatal(1);
         end
 
@@ -92,13 +102,13 @@ module lc3_rti_tb;
             ir !== 16'h8000 ||
             pc !== 16'h3002 ||
             dut.regs[1] !== 16'h0005 ||
-            dut.regs[6] !== 16'h4002 ||
+            dut.regs[6] !== 16'h5000 ||
             dut.regs[2] !== 16'h0000 ||
             psr !== 16'h0001) begin
           $display("%s[FAIL]%s %-14s", TB_RED, TB_RESET, "rti");
           $display("       actual   saw_return=%0d PC=%04h IR=%04h R1=%04h R2=%04h R6=%04h PSR=%04h",
                    saw_rti_return, pc, ir, dut.regs[1], dut.regs[2], dut.regs[6], psr);
-          $display("       expected saw_return=1 PC=3002 IR=8000 R1=0005 R2=0000 R6=4002 PSR=0001");
+          $display("       expected saw_return=1 PC=3002 IR=8000 R1=0005 R2=0000 R6=5000 PSR=0001");
           $fatal(1);
         end
 

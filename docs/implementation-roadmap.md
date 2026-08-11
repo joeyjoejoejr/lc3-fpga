@@ -57,6 +57,13 @@ For the FPGA, keep the existing polling timer because programs already use it.
 Add timer interrupts only later as an optional platform feature or plugin-like
 device policy.
 
+Full keyboard interrupt support includes the stack mechanism, not just the
+pending/vector/priority interface: the first real implementation should add
+hidden `USP`/`SSP` state so user-mode interrupts save `PC`/`PSR` on the
+supervisor stack instead of the user stack. Use a core/top `initial_ssp`
+parameter or boot metadata at first, then update the OS path to initialize the
+supervisor stack deliberately.
+
 ## 1. Core ALU Instructions
 
 ```text
@@ -237,12 +244,12 @@ framebuffer:
 LCD x/y -> LC-3 framebuffer x/y -> video RAM read -> RGB pixel -> LCD
 ```
 
-For a 480x272 LCD, scale the LC-3 128x128 framebuffer by 2:
+For a 480x272 LCD, scale the LC-3 128x124 framebuffer by 2:
 
 ```text
-128x128 -> 256x256
+128x124 -> 256x248
 left/right margin: 112 pixels
-top/bottom margin: 8 pixels
+top/bottom margin: 12 pixels
 ```
 
 The console should stay on UART at first. Do not build an on-screen text
@@ -308,7 +315,7 @@ OS code talks to.
 ### 8.10 FPGA Memory Choices
 
 Use internal block RAM first. It has predictable synchronous timing and is
-enough for the initial LC-3 RAM plus a 128x128 16-bit framebuffer.
+enough for the initial LC-3 RAM plus a 128x124 16-bit framebuffer.
 
 External SDRAM can come later behind a handshake-based controller:
 
