@@ -32,7 +32,10 @@ module lc3_privilege_user_tb;
     .pc(pc),
     .ir(ir),
     .mpr(16'hFFFF),
-    .psr(psr)
+    .psr(psr),
+    .irq_pending(1'b0),
+    .irq_priority(3'd0),
+    .irq_vector(8'h00)
   );
 
   lc3_memory memory (

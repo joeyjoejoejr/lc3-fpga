@@ -32,7 +32,10 @@ module lc3_mpr_protection_tb;
     .pc(pc),
     .ir(ir),
     .mpr(mpr),
-    .psr(psr)
+    .psr(psr),
+    .irq_pending(1'b0),
+    .irq_priority(3'd0),
+    .irq_vector(8'h00)
   );
 
   lc3_memory memory (

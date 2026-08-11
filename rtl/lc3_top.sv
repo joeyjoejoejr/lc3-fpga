@@ -77,7 +77,10 @@ module lc3_top #(
     .mem_we(mem_we),
     .pc(pc),
     .ir(ir),
-    .mpr(mpr)
+    .mpr(mpr),
+    .irq_pending(1'b0),
+    .irq_priority(3'd0),
+    .irq_vector(8'h00)
   );
 
   lc3_memory_controller #(
