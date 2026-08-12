@@ -7,18 +7,18 @@ module lc3_keyboard(
     input logic [7:0] keyboard_data,
     input logic kbdr_read,
 
-    output logic [15:0] kbsr_value,
+    output logic kb_ready_bit,
     output logic [15:0] kbdr_value
 );
   always_ff @(posedge clk) begin
     if(reset) begin
-      kbsr_value <= 16'h0000;
+      kb_ready_bit <= 1'b0;
       kbdr_value <= 16'h0000;
     end else begin
-      if(kbdr_read) kbsr_value <= 16'h0000;
+      if(kbdr_read) kb_ready_bit <= 1'b0;
 
-      if(!kbsr_value[15] && keyboard_valid) begin
-        kbsr_value <= 16'h8000;
+      if(!kb_ready_bit && keyboard_valid) begin
+        kb_ready_bit <= 1'b1;
         kbdr_value <= { 8'd0, keyboard_data };
       end
     end

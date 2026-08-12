@@ -124,12 +124,12 @@ module lc3_keyboard_tb;
 
     inject_key("d");
 
-    // KBSR is readable but writes are ignored for now; interrupt-enable bits
-    // are intentionally not modeled yet.
+    // KBSR[14] is writable interrupt-enable state; KBSR[15] remains the
+    // keyboard-ready bit and is cleared by reading KBDR.
     write_word(KBSR_ADDR, 16'h4000);
-    read_expect("kbd_sr_write_ignored", KBSR_ADDR, 16'h8000);
+    read_expect("kbd_sr_ie_set", KBSR_ADDR, 16'hC000);
     read_expect("kbd_second_data", KBDR_ADDR, 16'h0064);
-    read_expect("kbd_second_clear", KBSR_ADDR, 16'h0000);
+    read_expect("kbd_second_clear", KBSR_ADDR, 16'h4000);
 
     print_case_pass("keyboard");
     $finish;

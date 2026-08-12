@@ -46,6 +46,9 @@ module lc3_top #(
   logic [7:0] text_char_data;
   logic text_bridge_ready;
   logic text_console_ready;
+  logic irq_pending;
+  logic [2:0] irq_priority;
+  logic [7:0] irq_vector;
   logic [5:0] text_cell_read_col;
   logic [5:0] text_cell_read_row;
   logic [7:0] text_cell_read_data;
@@ -78,9 +81,9 @@ module lc3_top #(
     .pc(pc),
     .ir(ir),
     .mpr(mpr),
-    .irq_pending(1'b0),
-    .irq_priority(3'd0),
-    .irq_vector(8'h00)
+    .irq_pending(irq_pending),
+    .irq_priority(irq_priority),
+    .irq_vector(irq_vector)
   );
 
   lc3_memory_controller #(
@@ -105,7 +108,10 @@ module lc3_top #(
     .display_data(uart_tx_data),
     .display_ready(display_ready),
     .machine_halt(machine_halt),
-    .mpr(mpr)
+    .mpr(mpr),
+    .irq_pending(irq_pending),
+    .irq_priority(irq_priority),
+    .irq_vector(irq_vector)
   );
 
   uart_rx keyboard_uart (

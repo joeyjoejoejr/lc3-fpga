@@ -32,7 +32,12 @@ module lc3_memory_controller #(
   // Display / console
   output logic        display_valid,
   output logic [7:0]  display_data,
-  input  logic        display_ready
+  input  logic        display_ready,
+
+  // Interrupts
+  output logic        irq_pending,
+  output logic [2:0]  irq_priority,
+  output logic [7:0]  irq_vector
 );
   localparam logic [15:0] FRAMEBUFFER_START = 16'hC000;
   localparam logic [15:0] FRAMEBUFFER_END   = 16'hFDFF;
@@ -49,6 +54,10 @@ module lc3_memory_controller #(
   localparam logic [15:0] TMI_ADDR          = 16'hFE0A;
   localparam logic [15:0] MPR_ADDR          = 16'hFE12;
   localparam logic [15:0] MCR_ADDR          = 16'hFFFE;
+
+  // Interrupt vector
+  localparam logic [7:0] INT_KEYBOARD_VEC   = 8'h80;
+
 
   logic [15:0] mem [0:RAM_WORDS-1];
   logic [15:0] framebuffer [0:FRAMEBUFFER_WORDS-1];
@@ -78,17 +87,21 @@ module lc3_memory_controller #(
 
   // Keyboard
   logic [15:0] kbsr_value;
+  logic kb_ready_bit;
+  logic kb_int_bit;
   logic [15:0] kbdr_value;
   logic kbdr_read;
 
-  assign keyboard_ready = !kbsr_value[15];
+  assign keyboard_ready = !kb_ready_bit;
+  assign kbsr_value = { kb_ready_bit, kb_int_bit, 14'b0 };
+
   lc3_keyboard keyboard(
     .clk(clk),
     .reset(reset),
     .keyboard_valid(keyboard_valid),
     .keyboard_data(keyboard_data),
     .kbdr_read(kbdr_read),
-    .kbsr_value(kbsr_value),
+    .kb_ready_bit(kb_ready_bit),
     .kbdr_value(kbdr_value)
   );
 
@@ -99,6 +112,12 @@ module lc3_memory_controller #(
   assign video_addr_in_range = video_addr < FRAMEBUFFER_WORDS;
   assign cpu_framebuffer_addr = cpu_addr[13:0];
   assign machine_halt = !mcr[15];
+
+  // Keyboard interrupt
+  assign irq_pending = kbsr_value[15] && kbsr_value[14];
+  assign irq_priority = 3'd4;
+  assign irq_vector = INT_KEYBOARD_VEC;
+
 
   initial begin
     video_pixel = 16'h0000;
@@ -129,6 +148,7 @@ module lc3_memory_controller #(
       cpu_rdata <= 16'd0;
       mcr <= 16'hFFFF;
       mpr <= 16'h0000;
+      kb_int_bit <= 1'b0;
     end
     else begin
       if (cpu_we && cpu_addr_is_framebuffer) begin
@@ -146,6 +166,7 @@ module lc3_memory_controller #(
         case(cpu_addr)
           KBSR_ADDR: begin
             if(!cpu_we) cpu_rdata <= kbsr_value;
+            else kb_int_bit <= cpu_wdata[14];
           end
           KBDR_ADDR: begin
             if(!cpu_we) begin
