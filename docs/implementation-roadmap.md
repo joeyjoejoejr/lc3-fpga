@@ -91,6 +91,115 @@ Do not build a separate CPU interpreter as part of the assembler work. The
 assembler can be ordinary host software, but execution should still happen
 through the RTL-derived simulator.
 
+## Software Milestones
+
+The software side should move in small, testable increments. Each milestone
+should leave the shared crates usable by the CLI first, then by the native GUI
+and web app later.
+
+### 1. Assembler MVP
+
+Build the smallest useful assembler around `lc3-asm` and `lc3-image`.
+
+Acceptance criteria:
+
+```text
+input:       one source file with one .ORIG/.END section
+pseudos:     .ORIG .END .FILL
+instructions: ADD AND NOT TRAP
+labels:      definitions and forward references for .FILL
+literals:    decimal #n and hex xNNNN
+output:      MemoryImage with origin and encoded words
+tests:       unit tests for parsing, symbol resolution, and encoding
+```
+
+This milestone does not need a polished parser or every PennSim edge case. It
+does need errors that can be reported with source line numbers.
+
+### 2. Golden Compatibility Tests
+
+Add representative assembler fixtures and compare the emitted words against
+PennSim-generated output.
+
+Acceptance criteria:
+
+```text
+fixtures:    small programs under sw/tests/fixtures/asm
+reference:   expected words from PennSim or existing trusted hex files
+coverage:    at least one ALU program, one label/forward-reference program,
+             and one trap/halt program
+command:     make sw-test runs the golden tests
+```
+
+Keep PennSim as a test/reference tool only. The project-owned assembler should
+not depend on PennSim at runtime.
+
+### 3. CLI Assembler
+
+Expose the assembler through `lc3-cli`.
+
+Acceptance criteria:
+
+```text
+command:     lc3 asm input.asm --hex output.hex
+format:      writes $readmemh-compatible hex
+errors:      prints clear diagnostics and exits nonzero
+tests:       CLI smoke test assembles a tiny program into expected hex
+```
+
+The first CLI should stay thin. Parsing, encoding, diagnostics, and image
+formatting belong in reusable crates.
+
+### 4. Image Formats
+
+Make `lc3-image` the shared home for memory image conversion.
+
+Acceptance criteria:
+
+```text
+hex:         read and write the repo's $readmemh-compatible format
+obj:         read PennSim .obj when useful for cross-checks
+metadata:    preserve origin, words, and optional symbols/debug records
+tests:       round-trip tests for hex and object fixtures
+```
+
+Writing PennSim `.obj` can wait until a real workflow needs it.
+
+### 5. Diagnostics for Editor Integration
+
+Upgrade assembler diagnostics so the GUI and web editor can highlight useful
+locations.
+
+Acceptance criteria:
+
+```text
+location:    line and column for common parse/encode errors
+message:     concise user-facing explanation
+recovery:    collect multiple independent source errors when practical
+tests:       diagnostics include stable locations and messages
+```
+
+The aim is to make beginner mistakes understandable without turning the
+assembler into a language-server project too early.
+
+### 6. Verilator CLI Simulator
+
+Add the first RTL-backed simulator surface after the assembler can produce
+loadable images.
+
+Acceptance criteria:
+
+```text
+load:        memory image can be loaded into the Verilated model
+control:     reset, step, run for N cycles, stop
+inspect:     dump PC, registers, condition codes, and selected memory
+devices:     enough console input/output hooks for simple TRAP programs
+command:     lc3 sim program.asm or program.hex
+```
+
+This is the point where the CLI becomes the reference workflow for software
+programs before the native GUI and web app are built on top.
+
 Timer interrupts are not a required compatibility target yet. The references
 inspected so far agree on keyboard interrupts much more strongly than timer
 interrupts:
