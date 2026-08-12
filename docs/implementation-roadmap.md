@@ -43,6 +43,54 @@ The important constraint is to keep the RTL as the source of truth. The command
 line, native GUI, and web simulator should drive the same Verilated LC-3 design
 rather than growing a second hand-written instruction interpreter.
 
+## Assembler Direction
+
+The native GUI and web simulator should include a built-in assembler so small
+LC-3 programs can be edited, assembled, loaded, and run without a separate
+PennSim install.
+
+Build a project-owned assembler instead of embedding `lc3tools` for now.
+`lc3tools` looks technically embeddable, but its repository-level Apache-2.0
+license conflicts with source-file headers that say McGraw-Hill Education owns
+the files and prohibits redistribution without written consent. Until that is
+clarified, use it only as a behavioral reference.
+
+Use PennSim as the primary compatibility reference:
+
+```text
+input:      PennSim-style LC-3 assembly source
+output:     memory image suitable for the RTL simulator and FPGA image tools
+optional:   PennSim-compatible .obj output if useful for cross-checking
+diagnostic: source locations and clear parse/assembly errors for the GUI
+```
+
+Keep the assembler small and boring. A practical first version only needs the
+course-visible LC-3 language:
+
+```text
+instructions: ADD AND NOT BR JMP JSR JSRR LD LDI LDR LEA ST STI STR TRAP RTI
+pseudos:      .ORIG .END .FILL .BLKW .STRINGZ
+labels:       normal symbol definition and forward references
+literals:     decimal #n, hex xNNNN, character/string forms as PennSim accepts
+output:       origin-addressed words, plus symbol/debug metadata for the UI
+```
+
+Suggested implementation layers:
+
+```text
+1. Lexer/parser for PennSim-compatible assembly lines.
+2. First pass that records labels and section origins.
+3. Second pass that encodes instructions and pseudo-ops.
+4. Diagnostics that point at the source line/column where practical.
+5. Golden comparisons against PennSim for representative programs.
+6. Integration into the Verilator command-line simulator.
+7. Native GUI and web/WASM bindings around the same assembler core.
+```
+
+Do not build a separate CPU interpreter as part of the assembler work. The
+assembler can be ordinary host software, but execution should still happen
+through the RTL-derived simulator.
+
 Timer interrupts are not a required compatibility target yet. The references
 inspected so far agree on keyboard interrupts much more strongly than timer
 interrupts:
