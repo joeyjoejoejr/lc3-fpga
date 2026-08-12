@@ -38,6 +38,9 @@ pnr/
 *.rpt
 *.json
 
+# Rust software workspace
+sw/target/
+
 # OS/editor files
 .DS_Store
 *~

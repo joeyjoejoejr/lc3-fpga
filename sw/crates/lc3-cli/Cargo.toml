@@ -1,0 +1,12 @@
+[package]
+name = "lc3-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+lc3-asm = { path = "../lc3-asm" }

@@ -1,0 +1,11 @@
+[package]
+name = "lc3-image"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]

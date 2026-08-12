@@ -1,5 +1,6 @@
 IVERILOG ?= iverilog
 VVP ?= vvp
+CARGO ?= cargo
 RUN_VVP := scripts/run_vvp.sh
 YOSYS ?= yosys
 OPENFPGALOADER ?= openFPGALoader
@@ -67,6 +68,7 @@ LCD_COLOR_RTL := rtl/lcd_color_top.sv rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rt
 LCD_TEXT_CONSOLE_RTL := rtl/lcd_text_console_top.sv rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv $(TEXT_CONSOLE_RTL) $(TEXT_RENDERER_RTL)
 FRAMEBUFFER_READER_RTL := $(wildcard rtl/lc3_framebuffer_reader.sv)
 BUILD := sim/build
+SW_MANIFEST := sw/Cargo.toml
 ADD_ASM := $(wildcard programs/add/*.asm)
 ADD_HEX := $(ADD_ASM:.asm=.hex)
 AND_ASM := $(wildcard programs/and/*.asm)
@@ -96,9 +98,12 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-jmpt test-rtt test-rti test-interrupt test-privilege-user test-privilege-polarity test-mpr-protection test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-keyboard-interrupt test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
+.PHONY: test sw-test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-jmpt test-rtt test-rti test-interrupt test-privilege-user test-privilege-polarity test-mpr-protection test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-keyboard-interrupt test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
 
 test: test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-jmpt test-rtt test-rti test-interrupt test-privilege-user test-privilege-polarity test-mpr-protection test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-keyboard-interrupt test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx
+
+sw-test:
+	$(CARGO) test --manifest-path $(SW_MANIFEST)
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
