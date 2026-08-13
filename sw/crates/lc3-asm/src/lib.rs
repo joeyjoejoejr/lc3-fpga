@@ -131,7 +131,7 @@ fn read_origin(statements: &[ParsedStatement], diagnostics: &mut Vec<Diagnostic>
 
     if let [operand] = operands.as_slice() {
         (
-            read_u16_operand(
+            read_address_operand(
                 operand,
                 ".ORIG expects a 16-bit, numeric address",
                 diagnostics,
@@ -164,7 +164,7 @@ fn encode_fill(
 
     if let [operand] = operands.as_slice() {
         if let Some(value) =
-            read_u16_operand(operand, ".FILL expects a 16-bit numeric value", diagnostics)
+            read_word_operand(operand, ".FILL expects a 16-bit numeric value", diagnostics)
         {
             words.push(value);
         }
@@ -176,7 +176,7 @@ fn encode_fill(
     }
 }
 
-fn read_u16_operand(
+fn read_address_operand(
     operand: &Spanned<Operand>,
     message: &str,
     diagnostics: &mut Vec<Diagnostic>,
@@ -190,6 +190,32 @@ fn read_u16_operand(
     };
 
     if let Ok(value) = u16::try_from(value) {
+        Some(value)
+    } else {
+        diagnostics.push(Diagnostic {
+            location: operand.location,
+            message: message.to_string(),
+        });
+        None
+    }
+}
+
+fn read_word_operand(
+    operand: &Spanned<Operand>,
+    message: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<u16> {
+    let Operand::Number(value) = operand.value else {
+        diagnostics.push(Diagnostic {
+            location: operand.location,
+            message: message.to_string(),
+        });
+        return None;
+    };
+
+    if let Ok(value) = i16::try_from(value) {
+        Some(value.cast_unsigned())
+    } else if let Ok(value) = u16::try_from(value) {
         Some(value)
     } else {
         diagnostics.push(Diagnostic {

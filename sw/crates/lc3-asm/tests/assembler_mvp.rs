@@ -25,7 +25,6 @@ TRAP x25
 }
 
 #[test]
-#[ignore = "assembler MVP is not implemented yet"]
 fn assembles_fill_decimal_and_hex_literals() {
     let source = r"
 .ORIG x3100
