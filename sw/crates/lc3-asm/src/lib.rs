@@ -1,6 +1,11 @@
 use lc3_image::MemoryImage;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+use crate::lexer::LexError;
+
+pub mod lexer;
+pub mod parser;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SourceLocation {
     pub line: usize,
     pub column: usize,
@@ -10,6 +15,15 @@ pub struct SourceLocation {
 pub struct Diagnostic {
     pub location: SourceLocation,
     pub message: String,
+}
+
+impl From<LexError> for Diagnostic {
+    fn from(value: LexError) -> Self {
+        Self {
+            location: value.location,
+            message: value.message,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

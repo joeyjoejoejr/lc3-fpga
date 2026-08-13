@@ -19,3 +19,10 @@ Run the software tests with:
 ```sh
 cargo test --manifest-path sw/Cargo.toml
 ```
+
+Some acceptance tests are ignored until their milestone is implemented. Run the
+assembler MVP tests while working on the assembler with:
+
+```sh
+cargo test --manifest-path sw/Cargo.toml -p lc3-asm --test assembler_mvp -- --ignored
+```

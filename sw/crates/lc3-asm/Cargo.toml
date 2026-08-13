@@ -10,3 +10,4 @@ workspace = true
 
 [dependencies]
 lc3-image = { path = "../lc3-image" }
+logos = "0.16.1"
