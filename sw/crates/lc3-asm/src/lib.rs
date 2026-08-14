@@ -26,9 +26,15 @@ pub struct Diagnostic {
 
 impl From<LexError> for Diagnostic {
     fn from(value: LexError) -> Self {
+        Self::new(value.location, value.message)
+    }
+}
+
+impl Diagnostic {
+    pub fn new(location: SourceLocation, message: impl Into<String>) -> Self {
         Self {
-            location: value.location,
-            message: value.message,
+            location,
+            message: message.into(),
         }
     }
 }

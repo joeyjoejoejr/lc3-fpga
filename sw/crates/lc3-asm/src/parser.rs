@@ -97,10 +97,10 @@ fn parse_statement(tokens: &[SpannedToken]) -> Result<Option<ParsedStatement>, D
     };
 
     let Token::Ident(first_ident) = &first.token else {
-        return Err(Diagnostic {
-            location: first.location,
-            message: "expected operation or label".to_string(),
-        });
+        return Err(Diagnostic::new(
+            first.location,
+            "expected operation or label",
+        ));
     };
 
     let (label, operation, operand_tokens) = if let Some(operation) = Operation::parse(first_ident)
@@ -118,16 +118,16 @@ fn parse_statement(tokens: &[SpannedToken]) -> Result<Option<ParsedStatement>, D
                 &tokens[2..],
             )
         } else {
-            return Err(Diagnostic {
-                location: first.location,
-                message: "expected operation or nothing after a label".to_string(),
-            });
+            return Err(Diagnostic::new(
+                first.location,
+                "expected operation or nothing after a label",
+            ));
         }
     } else if tokens.get(1).is_some() {
-        return Err(Diagnostic {
-            location: tokens[1].location,
-            message: "expected operation after label".to_string(),
-        });
+        return Err(Diagnostic::new(
+            tokens[1].location,
+            "expected operation after label",
+        ));
     } else {
         return Ok(Some(ParsedStatement::Label {
             label: Spanned::new(first_ident.clone(), first.location),
@@ -154,11 +154,10 @@ fn parse_operands(tokens: &[SpannedToken]) -> Result<Vec<Spanned<Operand>>, Diag
             Token::StringLiteral(val) => Operand::StringLiteral(val.clone()),
             Token::Ident(val) => Operand::Ident(val.clone()),
             _ => {
-                return Err(Diagnostic {
-                    location: spanned_token.location,
-                    message: "error parsing operand: expected register, number, string or ident"
-                        .to_string(),
-                });
+                return Err(Diagnostic::new(
+                    spanned_token.location,
+                    "error parsing operand: expected register, number, string or ident",
+                ));
             }
         };
 
