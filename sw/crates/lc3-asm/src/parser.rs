@@ -28,6 +28,14 @@ impl Operation {
             _ => None,
         }
     }
+
+    #[must_use]
+    pub fn word_count(self) -> u16 {
+        match self {
+            Self::Add | Self::And | Self::Not | Self::Trap | Self::Fill => 1,
+            Self::Orig | Self::End => 0,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

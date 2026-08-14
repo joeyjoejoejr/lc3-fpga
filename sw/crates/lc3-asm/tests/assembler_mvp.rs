@@ -40,7 +40,6 @@ fn assembles_fill_decimal_and_hex_literals() {
 }
 
 #[test]
-#[ignore = "assembler MVP is not implemented yet"]
 fn resolves_forward_label_in_fill() {
     let source = r"
 .ORIG x3000

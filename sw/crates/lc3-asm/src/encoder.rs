@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use lc3_image::MemoryImage;
 
 use crate::{
@@ -16,9 +18,37 @@ struct Encoder {
     words: Vec<u16>,
     diagnostics: Vec<Diagnostic>,
     saw_end: bool,
+    symbols: HashMap<String, u16>,
 }
 
 impl Encoder {
+    fn build_symbol_table(&mut self, statements: &[ParsedStatement]) {
+        let mut address = self.origin;
+
+        for statement in statements {
+            match statement {
+                ParsedStatement::Label { label } => {
+                    self.symbols.insert(label.value.clone(), address);
+                }
+                ParsedStatement::Operation {
+                    label: Some(label),
+                    operation,
+                    ..
+                } => {
+                    self.symbols.insert(label.value.clone(), address);
+                    address += operation.value.word_count();
+                }
+                ParsedStatement::Operation {
+                    label: None,
+                    operation,
+                    ..
+                } => {
+                    address += operation.value.word_count();
+                }
+            }
+        }
+    }
+
     fn add_diagnostic(&mut self, location: SourceLocation, message: impl Into<String>) {
         self.diagnostics.push(Diagnostic::new(location, message));
     }
@@ -84,7 +114,6 @@ impl Encoder {
 
     fn read_word_operand(&mut self, operand: &Spanned<Operand>, message: &str) -> Option<u16> {
         let Operand::Number(value) = operand.value else {
-            self.add_diagnostic(operand.location, message);
             return None;
         };
 
@@ -115,9 +144,21 @@ impl Encoder {
                 self.read_word_operand(operand, ".FILL expects a 16-bit numeric value")
             {
                 self.words.push(value);
+            } else if let Operand::Ident(value) = &operand.value {
+                let Some(addr) = self.symbols.get(value) else {
+                    self.add_diagnostic(operand.location, "label not found");
+                    return;
+                };
+
+                self.words.push(*addr);
+            } else {
+                self.add_diagnostic(
+                    operation.location,
+                    ".FILL expects a numeric or label operand",
+                );
             }
         } else {
-            self.add_diagnostic(operation.location, ".FILL expects a single numeric operand");
+            self.add_diagnostic(operation.location, ".FILL expects a single operand");
         }
     }
 
@@ -249,6 +290,7 @@ impl Encoder {
 pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
     let mut encoder = Encoder::default();
     let skip = encoder.read_origin(statements);
+    encoder.build_symbol_table(statements);
 
     for statement in statements.iter().skip(skip) {
         if encoder.saw_end {
