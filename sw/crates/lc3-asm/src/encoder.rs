@@ -5,6 +5,8 @@ use crate::{
     parser::{Operand, Operation, ParsedStatement, Spanned},
 };
 
+const TRAP_OPCODE: u16 = 0xF000;
+
 pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
     let mut diagnostics = vec![];
     let (origin, skip) = read_origin(statements, &mut diagnostics);
@@ -29,6 +31,7 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
                     location: operation.location,
                     message: "nested .ORIG is not supported".to_string(),
                 }),
+                Operation::Trap => encode_trap(statement, &mut words, &mut diagnostics),
                 _ => diagnostics.push(Diagnostic {
                     location: operation.location,
                     message: format!("{:?} encoding is not implemented yet", operation.value),
@@ -124,6 +127,45 @@ fn encode_fill(
         diagnostics.push(Diagnostic {
             location: operation.location,
             message: ".FILL expects a single numeric operand".to_string(),
+        });
+    }
+}
+
+fn encode_trap(
+    statement: &ParsedStatement,
+    words: &mut Vec<u16>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let ParsedStatement::Operation {
+        operands,
+        operation,
+        ..
+    } = statement
+    else {
+        return;
+    };
+
+    if let [operand] = operands.as_slice() {
+        let Operand::Number(value) = operand.value else {
+            diagnostics.push(Diagnostic {
+                location: operand.location,
+                message: "TRAP expects a numeric vector".to_string(),
+            });
+            return;
+        };
+
+        if let Ok(vector) = u8::try_from(value) {
+            words.push(TRAP_OPCODE | u16::from(vector));
+        } else {
+            diagnostics.push(Diagnostic {
+                location: operand.location,
+                message: "TRAP vector must fit in 8 bits".to_string(),
+            });
+        }
+    } else {
+        diagnostics.push(Diagnostic {
+            location: operation.location,
+            message: "TRAP expects a single vector operand".to_string(),
         });
     }
 }

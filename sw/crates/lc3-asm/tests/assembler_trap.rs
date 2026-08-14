@@ -1,7 +1,6 @@
 use lc3_asm::assemble;
 
 #[test]
-#[ignore = "TRAP assembly is not implemented yet"]
 fn assembles_trap_instruction() {
     let source = r"
 .ORIG x3000
