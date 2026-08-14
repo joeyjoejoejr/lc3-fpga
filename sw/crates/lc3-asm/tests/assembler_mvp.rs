@@ -7,7 +7,6 @@ fn assembled_words(source: &str) -> (u16, Vec<u16>) {
 }
 
 #[test]
-#[ignore = "assembler MVP is not implemented yet"]
 fn assembles_orig_alu_and_trap_program() {
     let source = r"
 .ORIG x3000

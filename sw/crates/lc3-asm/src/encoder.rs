@@ -6,6 +6,9 @@ use crate::{
 };
 
 const TRAP_OPCODE: u16 = 0xF000;
+const ADD_OPCODE: u16 = 0x1000;
+const AND_OPCODE: u16 = 0x5000;
+const NOT_OPCODE: u16 = 0x903F;
 
 pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
     let mut diagnostics = vec![];
@@ -32,10 +35,9 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
                     message: "nested .ORIG is not supported".to_string(),
                 }),
                 Operation::Trap => encode_trap(statement, &mut words, &mut diagnostics),
-                _ => diagnostics.push(Diagnostic {
-                    location: operation.location,
-                    message: format!("{:?} encoding is not implemented yet", operation.value),
-                }),
+                Operation::Add => encode_add(statement, &mut words, &mut diagnostics),
+                Operation::And => encode_and(statement, &mut words, &mut diagnostics),
+                Operation::Not => encode_not(statement, &mut words, &mut diagnostics),
             },
         }
     }
@@ -168,6 +170,188 @@ fn encode_trap(
             message: "TRAP expects a single vector operand".to_string(),
         });
     }
+}
+
+fn encode_add(
+    statement: &ParsedStatement,
+    words: &mut Vec<u16>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let ParsedStatement::Operation {
+        operands,
+        operation,
+        ..
+    } = statement
+    else {
+        return;
+    };
+
+    match operands.as_slice() {
+        [
+            Spanned {
+                value: Operand::Register(dr),
+                ..
+            },
+            Spanned {
+                value: Operand::Register(sr1),
+                ..
+            },
+            Spanned {
+                value: Operand::Register(sr2),
+                ..
+            },
+        ] => {
+            let dr = u16::from(*dr) << 9;
+            let sr1 = u16::from(*sr1) << 6;
+            let sr2 = u16::from(*sr2);
+
+            words.push(ADD_OPCODE | dr | sr1 | sr2);
+        }
+        [
+            Spanned {
+                value: Operand::Register(dr),
+                ..
+            },
+            Spanned {
+                value: Operand::Register(sr1),
+                ..
+            },
+            Spanned {
+                value: Operand::Number(imm),
+                location,
+            },
+        ] => {
+            if !(-16..=15).contains(imm) {
+                diagnostics.push(Diagnostic {
+                    location: *location,
+                    message: "imm5 value out of range".to_string(),
+                });
+                return;
+            }
+
+            let dr = u16::from(*dr) << 9;
+            let sr1 = u16::from(*sr1) << 6;
+            let imm_bit = 1 << 5;
+            let imm = u16::try_from(*imm & 0x001F).expect("masked imm5 fits in u16");
+
+            words.push(ADD_OPCODE | dr | sr1 | imm_bit | imm);
+        }
+        _ => {
+            diagnostics.push(Diagnostic {
+                location: operation.location,
+                message: "ADD expects operands: destination register, source register, and 5 bit immediate value or second source".to_string(),
+            });
+        }
+    }
+}
+
+fn encode_and(
+    statement: &ParsedStatement,
+    words: &mut Vec<u16>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let ParsedStatement::Operation {
+        operands,
+        operation,
+        ..
+    } = statement
+    else {
+        return;
+    };
+
+    match operands.as_slice() {
+        [
+            Spanned {
+                value: Operand::Register(dr),
+                ..
+            },
+            Spanned {
+                value: Operand::Register(sr1),
+                ..
+            },
+            Spanned {
+                value: Operand::Register(sr2),
+                ..
+            },
+        ] => {
+            let dr = u16::from(*dr) << 9;
+            let sr1 = u16::from(*sr1) << 6;
+            let sr2 = u16::from(*sr2);
+
+            words.push(AND_OPCODE | dr | sr1 | sr2);
+        }
+        [
+            Spanned {
+                value: Operand::Register(dr),
+                ..
+            },
+            Spanned {
+                value: Operand::Register(sr1),
+                ..
+            },
+            Spanned {
+                value: Operand::Number(imm),
+                location,
+            },
+        ] => {
+            if !(-16..=15).contains(imm) {
+                diagnostics.push(Diagnostic {
+                    location: *location,
+                    message: "imm5 value out of range".to_string(),
+                });
+                return;
+            }
+
+            let dr = u16::from(*dr) << 9;
+            let sr1 = u16::from(*sr1) << 6;
+            let imm_bit = 1 << 5;
+            let imm = u16::try_from(*imm & 0x001F).expect("masked imm5 fits in u16");
+
+            words.push(AND_OPCODE | dr | sr1 | imm_bit | imm);
+        }
+        _ => {
+            diagnostics.push(Diagnostic {
+                location: operation.location,
+                message: "AND expects operands: destination register, source register, and 5 bit immediate value or second source".to_string(),
+            });
+        }
+    }
+}
+
+fn encode_not(
+    statement: &ParsedStatement,
+    words: &mut Vec<u16>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let ParsedStatement::Operation {
+        operands,
+        operation,
+        ..
+    } = statement
+    else {
+        return;
+    };
+
+    let [
+        Spanned {
+            value: Operand::Register(dr),
+            ..
+        },
+        Spanned {
+            value: Operand::Register(sr),
+            ..
+        },
+    ] = operands.as_slice()
+    else {
+        diagnostics.push(Diagnostic {
+            location: operation.location,
+            message: "NOT expects a source and destination register as operands".to_string(),
+        });
+        return;
+    };
+    let dr = u16::from(*dr) << 9;
+    let sr = u16::from(*sr) << 6;
+    words.push(NOT_OPCODE | dr | sr);
 }
 
 fn read_address_operand(
