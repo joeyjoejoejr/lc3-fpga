@@ -12,9 +12,11 @@ pub enum Operation {
     Br { n: bool, z: bool, p: bool },
     Ld,
     Ldi,
+    Ldr,
     Lea,
     St,
     Sti,
+    Str,
     Orig,
     End,
     Fill,
@@ -36,9 +38,11 @@ impl Operation {
             "TRAP" => Some(Self::Trap),
             "LD" => Some(Self::Ld),
             "LDI" => Some(Self::Ldi),
+            "LDR" => Some(Self::Ldr),
             "LEA" => Some(Self::Lea),
             "ST" => Some(Self::St),
             "STI" => Some(Self::Sti),
+            "STR" => Some(Self::Str),
             ".ORIG" => Some(Self::Orig),
             ".END" => Some(Self::End),
             ".FILL" => Some(Self::Fill),
@@ -98,9 +102,11 @@ impl Operation {
             | Self::Fill
             | Self::Ld
             | Self::Ldi
+            | Self::Ldr
             | Self::Lea
             | Self::St
-            | Self::Sti => 1,
+            | Self::Sti
+            | Self::Str => 1,
             Self::Orig | Self::End => 0,
         }
     }

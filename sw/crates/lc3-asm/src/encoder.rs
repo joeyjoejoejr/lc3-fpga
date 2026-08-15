@@ -14,9 +14,11 @@ const NOT_OPCODE: u16 = 0x903F;
 const BR_OPCODE: u16 = 0x0000;
 const LD_OPCODE: u16 = 0x2000;
 const LDI_OPCODE: u16 = 0xA000;
+const LDR_OPCODE: u16 = 0x6000;
 const LEA_OPCODE: u16 = 0xE000;
 const ST_OPCODE: u16 = 0x3000;
 const STI_OPCODE: u16 = 0xB000;
+const STR_OPCODE: u16 = 0x7000;
 
 #[derive(Clone, Eq, PartialEq, Default)]
 struct Encoder {
@@ -42,6 +44,15 @@ impl Encoder {
         }
 
         Some(u16::try_from(offset & 0x01FF).expect("offset9 fits in u16"))
+    }
+
+    fn get_offset6(&mut self, offset: i32, location: SourceLocation) -> Option<u16> {
+        if !(-32..=31).contains(&offset) {
+            self.add_diagnostic(location, "offset6 out of range");
+            return None;
+        }
+
+        Some(u16::try_from(offset & 0x003F).expect("offset6 fits in u16"))
     }
 
     fn current_addr(&self) -> u16 {
@@ -388,6 +399,46 @@ impl Encoder {
 
         self.words.push(opcode | u16::from(*reg) << 9 | offset);
     }
+
+    fn encode_offset6_op(&mut self, opcode: u16, name: &str, statement: &ParsedStatement) {
+        let ParsedStatement::Operation {
+            operands,
+            operation,
+            ..
+        } = statement
+        else {
+            return;
+        };
+
+        let [
+            Spanned {
+                value: Operand::Register(reg1),
+                ..
+            },
+            Spanned {
+                value: Operand::Register(reg2),
+                ..
+            },
+            Spanned {
+                value: Operand::Number(offset),
+                location,
+            },
+        ] = operands.as_slice()
+        else {
+            self.add_diagnostic(
+                operation.location,
+                format!("{name} expects two registers and an offset operand"),
+            );
+            return;
+        };
+
+        let Some(offset) = self.get_offset6(*offset, *location) else {
+            return;
+        };
+
+        self.words
+            .push(opcode | u16::from(*reg1) << 9 | u16::from(*reg2) << 6 | offset);
+    }
 }
 
 pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
@@ -419,9 +470,11 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
                 Operation::Br { .. } => encoder.encode_br(statement),
                 Operation::Ld => encoder.encode_offset9_op(LD_OPCODE, "LD", statement),
                 Operation::Ldi => encoder.encode_offset9_op(LDI_OPCODE, "LDI", statement),
+                Operation::Ldr => encoder.encode_offset6_op(LDR_OPCODE, "LDR", statement),
                 Operation::Lea => encoder.encode_offset9_op(LEA_OPCODE, "LEA", statement),
                 Operation::St => encoder.encode_offset9_op(ST_OPCODE, "ST", statement),
                 Operation::Sti => encoder.encode_offset9_op(STI_OPCODE, "STI", statement),
+                Operation::Str => encoder.encode_offset6_op(STR_OPCODE, "STR", statement),
             },
         }
     }
