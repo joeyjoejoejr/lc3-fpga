@@ -10,6 +10,11 @@ pub enum Operation {
     Not,
     Trap,
     Br { n: bool, z: bool, p: bool },
+    Ld,
+    Ldi,
+    Lea,
+    St,
+    Sti,
     Orig,
     End,
     Fill,
@@ -29,6 +34,11 @@ impl Operation {
             "AND" => Some(Self::And),
             "NOT" => Some(Self::Not),
             "TRAP" => Some(Self::Trap),
+            "LD" => Some(Self::Ld),
+            "LDI" => Some(Self::Ldi),
+            "LEA" => Some(Self::Lea),
+            "ST" => Some(Self::St),
+            "STI" => Some(Self::Sti),
             ".ORIG" => Some(Self::Orig),
             ".END" => Some(Self::End),
             ".FILL" => Some(Self::Fill),
@@ -80,7 +90,17 @@ impl Operation {
     #[must_use]
     pub fn word_count(self) -> u16 {
         match self {
-            Self::Br { .. } | Self::Add | Self::And | Self::Not | Self::Trap | Self::Fill => 1,
+            Self::Br { .. }
+            | Self::Add
+            | Self::And
+            | Self::Not
+            | Self::Trap
+            | Self::Fill
+            | Self::Ld
+            | Self::Ldi
+            | Self::Lea
+            | Self::St
+            | Self::Sti => 1,
             Self::Orig | Self::End => 0,
         }
     }

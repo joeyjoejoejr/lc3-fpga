@@ -12,6 +12,11 @@ const ADD_OPCODE: u16 = 0x1000;
 const AND_OPCODE: u16 = 0x5000;
 const NOT_OPCODE: u16 = 0x903F;
 const BR_OPCODE: u16 = 0x0000;
+const LD_OPCODE: u16 = 0x2000;
+const LDI_OPCODE: u16 = 0xA000;
+const LEA_OPCODE: u16 = 0xE000;
+const ST_OPCODE: u16 = 0x3000;
+const STI_OPCODE: u16 = 0xB000;
 
 #[derive(Clone, Eq, PartialEq, Default)]
 struct Encoder {
@@ -23,6 +28,22 @@ struct Encoder {
 }
 
 impl Encoder {
+    fn get_offset9(&mut self, label: &str, location: SourceLocation) -> Option<u16> {
+        let Some(addr) = self.symbols.get(&label.to_ascii_uppercase()) else {
+            self.add_diagnostic(location, "label not found");
+            return None;
+        };
+
+        let offset = i32::from(*addr) - i32::from(self.current_addr()) - 1;
+
+        if !(-256..=255).contains(&offset) {
+            self.add_diagnostic(location, "offset9 out of range");
+            return None;
+        }
+
+        Some(u16::try_from(offset & 0x01FF).expect("offset9 fits in u16"))
+    }
+
     fn current_addr(&self) -> u16 {
         self.origin + u16::try_from(self.words.len()).expect("words fits in 16 bits")
     }
@@ -325,22 +346,47 @@ impl Encoder {
             return;
         };
 
-        let Some(addr) = self.symbols.get(&label.to_ascii_uppercase()) else {
-            self.add_diagnostic(*location, "label not found");
+        let Some(offset) = self.get_offset9(label, *location) else {
             return;
         };
-
-        let offset = i32::from(*addr) - i32::from(self.current_addr()) - 1;
-
-        if !(-256..=255).contains(&offset) {
-            self.add_diagnostic(*location, "offset9 out of range");
-            return;
-        }
-
-        let offset = u16::try_from(offset & 0x01FF).expect("offset9 fits in u16");
         let nzp = (u16::from(*n) << 11) | (u16::from(*z) << 10) | (u16::from(*p) << 9);
 
         self.words.push(BR_OPCODE | nzp | offset);
+    }
+
+    fn encode_offset9_op(&mut self, opcode: u16, name: &str, statement: &ParsedStatement) {
+        let ParsedStatement::Operation {
+            operands,
+            operation,
+            ..
+        } = statement
+        else {
+            return;
+        };
+
+        let [
+            Spanned {
+                value: Operand::Register(reg),
+                ..
+            },
+            Spanned {
+                value: Operand::Ident(label),
+                location,
+            },
+        ] = operands.as_slice()
+        else {
+            self.add_diagnostic(
+                operation.location,
+                format!("{name} expects a register and label operand"),
+            );
+            return;
+        };
+
+        let Some(offset) = self.get_offset9(label, *location) else {
+            return;
+        };
+
+        self.words.push(opcode | u16::from(*reg) << 9 | offset);
     }
 }
 
@@ -371,6 +417,11 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
                 Operation::And => encoder.encode_imm5_op(AND_OPCODE, "AND", statement),
                 Operation::Not => encoder.encode_not(statement),
                 Operation::Br { .. } => encoder.encode_br(statement),
+                Operation::Ld => encoder.encode_offset9_op(LD_OPCODE, "LD", statement),
+                Operation::Ldi => encoder.encode_offset9_op(LDI_OPCODE, "LDI", statement),
+                Operation::Lea => encoder.encode_offset9_op(LEA_OPCODE, "LEA", statement),
+                Operation::St => encoder.encode_offset9_op(ST_OPCODE, "ST", statement),
+                Operation::Sti => encoder.encode_offset9_op(STI_OPCODE, "STI", statement),
             },
         }
     }
