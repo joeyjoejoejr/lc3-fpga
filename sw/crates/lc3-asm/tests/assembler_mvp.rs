@@ -54,3 +54,50 @@ TRAP x25
     assert_eq!(origin, 0x3000);
     assert_eq!(words, vec![0x3001, 0x1021, 0xF025]);
 }
+
+#[test]
+fn resolves_label_references_case_insensitively() {
+    let source = r"
+.ORIG x3000
+.FILL iTeM
+ITEM ADD R0, R0, #1
+.END
+";
+
+    let (origin, words) = assembled_words(source);
+
+    assert_eq!(origin, 0x3000);
+    assert_eq!(words, vec![0x3001, 0x1021]);
+}
+
+#[test]
+fn reports_duplicate_labels() {
+    let source = r"
+.ORIG x3000
+ITEM .FILL #1
+ITEM .FILL #2
+.END
+";
+
+    let diagnostics = assemble(source).expect_err("source should not assemble");
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].message, "duplicate label");
+    assert_eq!(diagnostics[0].location.line, 4);
+}
+
+#[test]
+fn reports_duplicate_labels_case_insensitively() {
+    let source = r"
+.ORIG x3000
+item .FILL #1
+ITEM .FILL #2
+.END
+";
+
+    let diagnostics = assemble(source).expect_err("source should not assemble");
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].message, "duplicate label");
+    assert_eq!(diagnostics[0].location.line, 4);
+}

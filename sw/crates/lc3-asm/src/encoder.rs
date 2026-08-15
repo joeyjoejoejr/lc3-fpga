@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
 
 use lc3_image::MemoryImage;
 
@@ -28,14 +28,14 @@ impl Encoder {
         for statement in statements {
             match statement {
                 ParsedStatement::Label { label } => {
-                    self.symbols.insert(label.value.clone(), address);
+                    self.add_symbol(&label.value, address, label.location);
                 }
                 ParsedStatement::Operation {
                     label: Some(label),
                     operation,
                     ..
                 } => {
-                    self.symbols.insert(label.value.clone(), address);
+                    self.add_symbol(&label.value, address, label.location);
                     address += operation.value.word_count();
                 }
                 ParsedStatement::Operation {
@@ -46,6 +46,15 @@ impl Encoder {
                     address += operation.value.word_count();
                 }
             }
+        }
+    }
+
+    fn add_symbol(&mut self, value: &str, address: u16, location: SourceLocation) {
+        match self.symbols.entry(value.to_ascii_uppercase()) {
+            Entry::Vacant(entry) => {
+                entry.insert(address);
+            }
+            Entry::Occupied(_) => self.add_diagnostic(location, "duplicate label"),
         }
     }
 
@@ -145,7 +154,7 @@ impl Encoder {
             {
                 self.words.push(value);
             } else if let Operand::Ident(value) = &operand.value {
-                let Some(addr) = self.symbols.get(value) else {
+                let Some(addr) = self.symbols.get(&value.to_ascii_uppercase()) else {
                     self.add_diagnostic(operand.location, "label not found");
                     return;
                 };
