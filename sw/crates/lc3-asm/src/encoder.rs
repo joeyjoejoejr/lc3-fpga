@@ -11,6 +11,7 @@ const TRAP_OPCODE: u16 = 0xF000;
 const ADD_OPCODE: u16 = 0x1000;
 const AND_OPCODE: u16 = 0x5000;
 const NOT_OPCODE: u16 = 0x903F;
+const BR_OPCODE: u16 = 0x0000;
 
 #[derive(Clone, Eq, PartialEq, Default)]
 struct Encoder {
@@ -22,6 +23,10 @@ struct Encoder {
 }
 
 impl Encoder {
+    fn current_addr(&self) -> u16 {
+        self.origin + u16::try_from(self.words.len()).expect("words fits in 16 bits")
+    }
+
     fn build_symbol_table(&mut self, statements: &[ParsedStatement]) {
         let mut address = self.origin;
 
@@ -294,6 +299,49 @@ impl Encoder {
         let sr = u16::from(*sr) << 6;
         self.words.push(NOT_OPCODE | dr | sr);
     }
+
+    fn encode_br(&mut self, statement: &ParsedStatement) {
+        let ParsedStatement::Operation {
+            operands,
+            operation:
+                Spanned {
+                    value: Operation::Br { n, z, p },
+                    location,
+                },
+            ..
+        } = statement
+        else {
+            return;
+        };
+
+        let [
+            Spanned {
+                value: Operand::Ident(label),
+                location,
+            },
+        ] = operands.as_slice()
+        else {
+            self.add_diagnostic(*location, "BR expects a label operand");
+            return;
+        };
+
+        let Some(addr) = self.symbols.get(&label.to_ascii_uppercase()) else {
+            self.add_diagnostic(*location, "label not found");
+            return;
+        };
+
+        let offset = i32::from(*addr) - i32::from(self.current_addr()) - 1;
+
+        if !(-256..=255).contains(&offset) {
+            self.add_diagnostic(*location, "offset9 out of range");
+            return;
+        }
+
+        let offset = u16::try_from(offset & 0x01FF).expect("offset9 fits in u16");
+        let nzp = (u16::from(*n) << 11) | (u16::from(*z) << 10) | (u16::from(*p) << 9);
+
+        self.words.push(BR_OPCODE | nzp | offset);
+    }
 }
 
 pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
@@ -322,6 +370,7 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
                 Operation::Add => encoder.encode_imm5_op(ADD_OPCODE, "ADD", statement),
                 Operation::And => encoder.encode_imm5_op(AND_OPCODE, "AND", statement),
                 Operation::Not => encoder.encode_not(statement),
+                Operation::Br { .. } => encoder.encode_br(statement),
             },
         }
     }

@@ -9,6 +9,7 @@ pub enum Operation {
     And,
     Not,
     Trap,
+    Br { n: bool, z: bool, p: bool },
     Orig,
     End,
     Fill,
@@ -17,7 +18,13 @@ pub enum Operation {
 impl Operation {
     #[must_use]
     pub fn parse(token: &str) -> Option<Self> {
-        match token.to_ascii_uppercase().as_str() {
+        let token = token.to_ascii_uppercase();
+
+        if let Some(flags) = token.strip_prefix("BR") {
+            return Self::parse_br(flags);
+        }
+
+        match token.as_str() {
             "ADD" => Some(Self::Add),
             "AND" => Some(Self::And),
             "NOT" => Some(Self::Not),
@@ -29,10 +36,51 @@ impl Operation {
         }
     }
 
+    fn parse_br(flags: &str) -> Option<Self> {
+        match flags {
+            "" | "NZP" => Some(Self::Br {
+                n: true,
+                z: true,
+                p: true,
+            }),
+            "N" => Some(Self::Br {
+                n: true,
+                z: false,
+                p: false,
+            }),
+            "NZ" => Some(Self::Br {
+                n: true,
+                z: true,
+                p: false,
+            }),
+            "NP" => Some(Self::Br {
+                n: true,
+                z: false,
+                p: true,
+            }),
+            "Z" => Some(Self::Br {
+                n: false,
+                z: true,
+                p: false,
+            }),
+            "ZP" => Some(Self::Br {
+                n: false,
+                z: true,
+                p: true,
+            }),
+            "P" => Some(Self::Br {
+                n: false,
+                z: false,
+                p: true,
+            }),
+            _ => None,
+        }
+    }
+
     #[must_use]
     pub fn word_count(self) -> u16 {
         match self {
-            Self::Add | Self::And | Self::Not | Self::Trap | Self::Fill => 1,
+            Self::Br { .. } | Self::Add | Self::And | Self::Not | Self::Trap | Self::Fill => 1,
             Self::Orig | Self::End => 0,
         }
     }
