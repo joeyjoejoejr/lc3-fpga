@@ -17,6 +17,10 @@ pub enum Operation {
     St,
     Sti,
     Str,
+    Jmp,
+    Jmpt,
+    Ret,
+    Rtt,
     Orig,
     End,
     Fill,
@@ -43,6 +47,10 @@ impl Operation {
             "ST" => Some(Self::St),
             "STI" => Some(Self::Sti),
             "STR" => Some(Self::Str),
+            "JMP" => Some(Self::Jmp),
+            "JMPT" => Some(Self::Jmpt),
+            "RET" => Some(Self::Ret),
+            "RTT" => Some(Self::Rtt),
             ".ORIG" => Some(Self::Orig),
             ".END" => Some(Self::End),
             ".FILL" => Some(Self::Fill),
@@ -106,7 +114,11 @@ impl Operation {
             | Self::Lea
             | Self::St
             | Self::Sti
-            | Self::Str => 1,
+            | Self::Str
+            | Self::Jmp
+            | Self::Jmpt
+            | Self::Ret
+            | Self::Rtt => 1,
             Self::Orig | Self::End => 0,
         }
     }

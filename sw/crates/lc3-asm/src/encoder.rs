@@ -19,6 +19,7 @@ const LEA_OPCODE: u16 = 0xE000;
 const ST_OPCODE: u16 = 0x3000;
 const STI_OPCODE: u16 = 0xB000;
 const STR_OPCODE: u16 = 0x7000;
+const JMP_OPCODE: u16 = 0xC000;
 
 #[derive(Clone, Eq, PartialEq, Default)]
 struct Encoder {
@@ -439,6 +440,57 @@ impl Encoder {
         self.words
             .push(opcode | u16::from(*reg1) << 9 | u16::from(*reg2) << 6 | offset);
     }
+
+    fn encode_jmp(&mut self, is_jmpt: bool, statement: &ParsedStatement) {
+        let ParsedStatement::Operation {
+            operands,
+            operation,
+            ..
+        } = statement
+        else {
+            return;
+        };
+        let name = if is_jmpt { "JMPT" } else { "JMP" };
+
+        let [
+            Spanned {
+                value: Operand::Register(reg),
+                ..
+            },
+        ] = operands.as_slice()
+        else {
+            self.add_diagnostic(
+                operation.location,
+                format!("{name} expects a base register operand"),
+            );
+            return;
+        };
+
+        let reg = u16::from(*reg) << 6;
+
+        self.words.push(JMP_OPCODE | reg | u16::from(is_jmpt));
+    }
+
+    fn encode_ret(&mut self, is_rtt: bool, statement: &ParsedStatement) {
+        let ParsedStatement::Operation {
+            operands,
+            operation,
+            ..
+        } = statement
+        else {
+            return;
+        };
+        let name = if is_rtt { "RTT" } else { "RET" };
+
+        let [] = operands.as_slice() else {
+            self.add_diagnostic(operation.location, format!("{name} expects no operands"));
+            return;
+        };
+
+        let reg = 7 << 6;
+
+        self.words.push(JMP_OPCODE | reg | u16::from(is_rtt));
+    }
 }
 
 pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
@@ -475,6 +527,10 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
                 Operation::St => encoder.encode_offset9_op(ST_OPCODE, "ST", statement),
                 Operation::Sti => encoder.encode_offset9_op(STI_OPCODE, "STI", statement),
                 Operation::Str => encoder.encode_offset6_op(STR_OPCODE, "STR", statement),
+                Operation::Jmp => encoder.encode_jmp(false, statement),
+                Operation::Jmpt => encoder.encode_jmp(true, statement),
+                Operation::Ret => encoder.encode_ret(false, statement),
+                Operation::Rtt => encoder.encode_ret(true, statement),
             },
         }
     }
