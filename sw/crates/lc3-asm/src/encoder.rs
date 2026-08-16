@@ -29,7 +29,7 @@ struct Encoder {
     words: Vec<u16>,
     diagnostics: Vec<Diagnostic>,
     saw_end: bool,
-    symbols: HashMap<String, u16>,
+    symbols: HashMap<String, u32>,
 }
 
 impl Encoder {
@@ -39,7 +39,7 @@ impl Encoder {
             return None;
         };
 
-        let offset = i32::from(*addr) - i32::from(self.current_addr()) - 1;
+        let offset = i64::from(*addr) - i64::from(self.current_addr()) - 1;
 
         if !(-256..=255).contains(&offset) {
             self.add_diagnostic(location, "offset9 out of range");
@@ -55,7 +55,7 @@ impl Encoder {
             return None;
         };
 
-        let offset = i32::from(*addr) - i32::from(self.current_addr()) - 1;
+        let offset = i64::from(*addr) - i64::from(self.current_addr()) - 1;
 
         if !(-1024..=1023).contains(&offset) {
             self.add_diagnostic(location, "offset11 out of range");
@@ -79,12 +79,42 @@ impl Encoder {
     }
 
     fn build_symbol_table(&mut self, statements: &[ParsedStatement]) {
-        let mut address = self.origin;
+        let mut address = u32::from(self.origin);
 
         for statement in statements {
-            match statement {
+            let new_words = match statement {
                 ParsedStatement::Label { label } => {
                     self.add_symbol(&label.value, address, label.location);
+                    0
+                }
+                ParsedStatement::Operation {
+                    operation:
+                        Spanned {
+                            value: Operation::Blkw,
+                            ..
+                        },
+                    operands,
+                    label,
+                } => {
+                    if let Some(label) = label {
+                        self.add_symbol(&label.value, address, label.location);
+                    }
+
+                    let [
+                        Spanned {
+                            value: Operand::Number(num),
+                            ..
+                        },
+                    ] = operands.as_slice()
+                    else {
+                        continue;
+                    };
+
+                    if !(0..=65535).contains(num) {
+                        continue;
+                    }
+
+                    u16::try_from(*num).expect("BLKW fits in u16")
                 }
                 ParsedStatement::Operation {
                     label: Some(label),
@@ -92,20 +122,29 @@ impl Encoder {
                     ..
                 } => {
                     self.add_symbol(&label.value, address, label.location);
-                    address += operation.value.word_count();
+                    operation.value.word_count()
                 }
                 ParsedStatement::Operation {
                     label: None,
                     operation,
                     ..
-                } => {
-                    address += operation.value.word_count();
+                } => operation.value.word_count(),
+            };
+
+            if new_words > 0 {
+                let last_address = address + u32::from(new_words) - 1;
+
+                if last_address > u32::from(u16::MAX) {
+                    address = u32::from(u16::MAX);
+                    self.add_diagnostic(statement.location(), "address out of bounds");
+                    continue;
                 }
+                address += u32::from(new_words);
             }
         }
     }
 
-    fn add_symbol(&mut self, value: &str, address: u16, location: SourceLocation) {
+    fn add_symbol(&mut self, value: &str, address: u32, location: SourceLocation) {
         match self.symbols.entry(value.to_ascii_uppercase()) {
             Entry::Vacant(entry) => {
                 entry.insert(address);
@@ -215,7 +254,8 @@ impl Encoder {
                     return;
                 };
 
-                self.words.push(*addr);
+                self.words
+                    .push(u16::try_from(*addr).expect("address fits in u16"));
             } else {
                 self.add_diagnostic(
                     operation.location,
@@ -581,6 +621,37 @@ impl Encoder {
 
         self.words.push(RTI_OPCODE);
     }
+
+    fn encode_blkw(&mut self, statement: &ParsedStatement) {
+        let ParsedStatement::Operation {
+            operands,
+            operation,
+            ..
+        } = statement
+        else {
+            return;
+        };
+
+        let [
+            Spanned {
+                value: Operand::Number(num),
+                location,
+            },
+        ] = operands.as_slice()
+        else {
+            self.add_diagnostic(operation.location, ".BLKW expects a single count operand");
+            return;
+        };
+
+        if !(0..=65535).contains(num) {
+            self.add_diagnostic(*location, ".BLKW operand must be positive 16 bit number");
+            return;
+        }
+
+        let num = usize::try_from(*num).expect("Operand is positive");
+
+        self.words.extend(std::iter::repeat_n(0, num));
+    }
 }
 
 pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
@@ -624,6 +695,7 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
                 Operation::Jsr => encoder.encode_jsr(statement),
                 Operation::Jsrr => encoder.encode_jsrr(statement),
                 Operation::Rti => encoder.encode_rti(statement),
+                Operation::Blkw => encoder.encode_blkw(statement),
             },
         }
     }
