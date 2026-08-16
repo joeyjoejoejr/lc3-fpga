@@ -28,6 +28,7 @@ pub enum Operation {
     End,
     Fill,
     Blkw,
+    Stringz,
 }
 
 impl Operation {
@@ -62,6 +63,7 @@ impl Operation {
             ".END" => Some(Self::End),
             ".FILL" => Some(Self::Fill),
             ".BLKW" => Some(Self::Blkw),
+            ".STRINGZ" => Some(Self::Stringz),
             _ => None,
         }
     }
@@ -130,7 +132,7 @@ impl Operation {
             | Self::Jsr
             | Self::Jsrr
             | Self::Rti => 1,
-            Self::Blkw | Self::Orig | Self::End => 0,
+            Self::Blkw | Self::Stringz | Self::Orig | Self::End => 0,
         }
     }
 }

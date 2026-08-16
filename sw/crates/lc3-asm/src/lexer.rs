@@ -80,7 +80,34 @@ fn parse_hex(lexer: &mut logos::Lexer<'_, Token>) -> Option<i32> {
 }
 
 fn parse_string_literal(lexer: &mut logos::Lexer<'_, Token>) -> String {
-    lexer.slice().to_string()
+    let slice = lexer.slice();
+    decode_pennsim_string(&slice[1..slice.len() - 1])
+}
+
+fn decode_pennsim_string(input: &str) -> String {
+    let mut decoded = String::new();
+    let mut chars = input.chars();
+
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            decoded.push(ch);
+            continue;
+        }
+
+        match chars.next() {
+            Some('n') => decoded.push('\n'),
+            Some('t') => decoded.push('\t'),
+            Some('"') => decoded.push('"'),
+            Some('0') => decoded.push('\0'),
+            Some(other) => {
+                decoded.push('\\');
+                decoded.push(other);
+            }
+            None => decoded.push('\\'),
+        }
+    }
+
+    decoded
 }
 
 fn source_location(source: &str, byte_index: usize) -> SourceLocation {

@@ -117,6 +117,35 @@ impl Encoder {
                     u16::try_from(*num).expect("BLKW fits in u16")
                 }
                 ParsedStatement::Operation {
+                    operation:
+                        Spanned {
+                            value: Operation::Stringz,
+                            ..
+                        },
+                    operands,
+                    label,
+                } => {
+                    if let Some(label) = label {
+                        self.add_symbol(&label.value, address, label.location);
+                    }
+
+                    let [
+                        Spanned {
+                            value: Operand::StringLiteral(string),
+                            ..
+                        },
+                    ] = operands.as_slice()
+                    else {
+                        continue;
+                    };
+
+                    if string.len() > 65534 {
+                        continue;
+                    }
+
+                    u16::try_from(string.len() + 1).expect("string fits in 16 bits")
+                }
+                ParsedStatement::Operation {
                     label: Some(label),
                     operation,
                     ..
@@ -652,6 +681,44 @@ impl Encoder {
 
         self.words.extend(std::iter::repeat_n(0, num));
     }
+
+    fn encode_stringz(&mut self, statement: &ParsedStatement) {
+        let ParsedStatement::Operation {
+            operands,
+            operation,
+            ..
+        } = statement
+        else {
+            return;
+        };
+
+        let [
+            Spanned {
+                value: Operand::StringLiteral(string),
+                location,
+            },
+        ] = operands.as_slice()
+        else {
+            self.add_diagnostic(
+                operation.location,
+                ".STRINGZ expects a single string operand",
+            );
+            return;
+        };
+
+        if string.len() > 65534 {
+            self.add_diagnostic(*location, "string size out of bounds");
+            return;
+        }
+
+        if !string.is_ascii() {
+            self.add_diagnostic(*location, "string only supports ascii");
+            return;
+        }
+
+        self.words.extend(string.bytes().map(u16::from));
+        self.words.push(0);
+    }
 }
 
 pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
@@ -696,6 +763,7 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
                 Operation::Jsrr => encoder.encode_jsrr(statement),
                 Operation::Rti => encoder.encode_rti(statement),
                 Operation::Blkw => encoder.encode_blkw(statement),
+                Operation::Stringz => encoder.encode_stringz(statement),
             },
         }
     }
