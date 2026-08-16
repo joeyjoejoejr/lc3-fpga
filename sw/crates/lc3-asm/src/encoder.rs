@@ -21,6 +21,7 @@ const STI_OPCODE: u16 = 0xB000;
 const STR_OPCODE: u16 = 0x7000;
 const JMP_OPCODE: u16 = 0xC000;
 const JSR_OPCODE: u16 = 0x4000;
+const RTI_OPCODE: u16 = 0x8000;
 
 #[derive(Clone, Eq, PartialEq, Default)]
 struct Encoder {
@@ -562,6 +563,24 @@ impl Encoder {
 
         self.words.push(JSR_OPCODE | reg);
     }
+
+    fn encode_rti(&mut self, statement: &ParsedStatement) {
+        let ParsedStatement::Operation {
+            operands,
+            operation,
+            ..
+        } = statement
+        else {
+            return;
+        };
+
+        let [] = operands.as_slice() else {
+            self.add_diagnostic(operation.location, "RTI expects no operands");
+            return;
+        };
+
+        self.words.push(RTI_OPCODE);
+    }
 }
 
 pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
@@ -604,6 +623,7 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
                 Operation::Rtt => encoder.encode_ret(true, statement),
                 Operation::Jsr => encoder.encode_jsr(statement),
                 Operation::Jsrr => encoder.encode_jsrr(statement),
+                Operation::Rti => encoder.encode_rti(statement),
             },
         }
     }

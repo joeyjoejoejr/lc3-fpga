@@ -23,6 +23,7 @@ pub enum Operation {
     Rtt,
     Jsr,
     Jsrr,
+    Rti,
     Orig,
     End,
     Fill,
@@ -55,6 +56,7 @@ impl Operation {
             "RTT" => Some(Self::Rtt),
             "JSR" => Some(Self::Jsr),
             "JSRR" => Some(Self::Jsrr),
+            "RTI" => Some(Self::Rti),
             ".ORIG" => Some(Self::Orig),
             ".END" => Some(Self::End),
             ".FILL" => Some(Self::Fill),
@@ -124,7 +126,8 @@ impl Operation {
             | Self::Ret
             | Self::Rtt
             | Self::Jsr
-            | Self::Jsrr => 1,
+            | Self::Jsrr
+            | Self::Rti => 1,
             Self::Orig | Self::End => 0,
         }
     }
