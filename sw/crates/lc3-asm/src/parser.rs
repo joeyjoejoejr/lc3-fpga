@@ -21,6 +21,8 @@ pub enum Operation {
     Jmpt,
     Ret,
     Rtt,
+    Jsr,
+    Jsrr,
     Orig,
     End,
     Fill,
@@ -51,6 +53,8 @@ impl Operation {
             "JMPT" => Some(Self::Jmpt),
             "RET" => Some(Self::Ret),
             "RTT" => Some(Self::Rtt),
+            "JSR" => Some(Self::Jsr),
+            "JSRR" => Some(Self::Jsrr),
             ".ORIG" => Some(Self::Orig),
             ".END" => Some(Self::End),
             ".FILL" => Some(Self::Fill),
@@ -118,7 +122,9 @@ impl Operation {
             | Self::Jmp
             | Self::Jmpt
             | Self::Ret
-            | Self::Rtt => 1,
+            | Self::Rtt
+            | Self::Jsr
+            | Self::Jsrr => 1,
             Self::Orig | Self::End => 0,
         }
     }

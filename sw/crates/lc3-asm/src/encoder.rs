@@ -20,6 +20,7 @@ const ST_OPCODE: u16 = 0x3000;
 const STI_OPCODE: u16 = 0xB000;
 const STR_OPCODE: u16 = 0x7000;
 const JMP_OPCODE: u16 = 0xC000;
+const JSR_OPCODE: u16 = 0x4000;
 
 #[derive(Clone, Eq, PartialEq, Default)]
 struct Encoder {
@@ -45,6 +46,22 @@ impl Encoder {
         }
 
         Some(u16::try_from(offset & 0x01FF).expect("offset9 fits in u16"))
+    }
+
+    fn get_offset11(&mut self, label: &str, location: SourceLocation) -> Option<u16> {
+        let Some(addr) = self.symbols.get(&label.to_ascii_uppercase()) else {
+            self.add_diagnostic(location, "label not found");
+            return None;
+        };
+
+        let offset = i32::from(*addr) - i32::from(self.current_addr()) - 1;
+
+        if !(-1024..=1023).contains(&offset) {
+            self.add_diagnostic(location, "offset11 out of range");
+            return None;
+        }
+
+        Some(u16::try_from(offset & 0x07FF).expect("offset11 fits in u16"))
     }
 
     fn get_offset6(&mut self, offset: i32, location: SourceLocation) -> Option<u16> {
@@ -491,6 +508,60 @@ impl Encoder {
 
         self.words.push(JMP_OPCODE | reg | u16::from(is_rtt));
     }
+
+    fn encode_jsr(&mut self, statement: &ParsedStatement) {
+        let ParsedStatement::Operation {
+            operands,
+            operation,
+            ..
+        } = statement
+        else {
+            return;
+        };
+
+        let [
+            Spanned {
+                value: Operand::Ident(label),
+                location,
+            },
+        ] = operands.as_slice()
+        else {
+            self.add_diagnostic(operation.location, "JSR expects a label operand");
+            return;
+        };
+
+        let Some(offset) = self.get_offset11(label, *location) else {
+            return;
+        };
+
+        self.words.push(JSR_OPCODE | 1 << 11 | offset);
+    }
+
+    fn encode_jsrr(&mut self, statement: &ParsedStatement) {
+        let ParsedStatement::Operation {
+            operands,
+            operation,
+            ..
+        } = statement
+        else {
+            return;
+        };
+
+        let [
+            Spanned {
+                value: Operand::Register(reg),
+                ..
+            },
+        ] = operands.as_slice()
+        else {
+            self.add_diagnostic(operation.location, "JSRR expects a register operand");
+            return;
+        };
+
+        let reg = u16::from(*reg) << 6;
+
+        self.words.push(JSR_OPCODE | reg);
+    }
 }
 
 pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
@@ -531,6 +602,8 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
                 Operation::Jmpt => encoder.encode_jmp(true, statement),
                 Operation::Ret => encoder.encode_ret(false, statement),
                 Operation::Rtt => encoder.encode_ret(true, statement),
+                Operation::Jsr => encoder.encode_jsr(statement),
+                Operation::Jsrr => encoder.encode_jsrr(statement),
             },
         }
     }
