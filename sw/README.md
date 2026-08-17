@@ -20,9 +20,21 @@ Run the software tests with:
 cargo test --manifest-path sw/Cargo.toml
 ```
 
-Some acceptance tests are ignored until their milestone is implemented. Run the
-assembler MVP tests while working on the assembler with:
+or from the repository root:
 
 ```sh
-cargo test --manifest-path sw/Cargo.toml -p lc3-asm --test assembler_mvp -- --ignored
+make sw-test
+```
+
+The assembler and CLI test suite includes PennSim golden comparisons. Those
+tests assemble representative fixtures and real checked-in programs with both
+PennSim and `lc3-cli`, then compare the emitted `.obj` bytes. PennSim remains a
+test/reference tool only; the project-owned assembler does not depend on it at
+runtime.
+
+Current assembler CLI:
+
+```sh
+cargo run --manifest-path sw/Cargo.toml -p lc3-cli -- asm program.asm
+cargo run --manifest-path sw/Cargo.toml -p lc3-cli -- asm program.asm --obj out.obj --sym out.sym
 ```

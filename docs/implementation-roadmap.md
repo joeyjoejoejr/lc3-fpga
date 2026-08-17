@@ -69,10 +69,11 @@ course-visible LC-3 language:
 
 ```text
 instructions: ADD AND NOT BR JMP JSR JSRR LD LDI LDR LEA ST STI STR TRAP RTI
+trap aliases: GETC OUT PUTS IN PUTSP HALT
 pseudos:      .ORIG .END .FILL .BLKW .STRINGZ
 labels:       normal symbol definition and forward references
-literals:     decimal #n, hex xNNNN, character/string forms as PennSim accepts
-output:       origin-addressed words, plus symbol/debug metadata for the UI
+literals:     decimal #n or bare n, hex xNNNN, PennSim-compatible .STRINGZ strings
+output:       PennSim-style .obj and .sym files, plus reusable image metadata
 ```
 
 Suggested implementation layers:
@@ -99,35 +100,33 @@ and web app later.
 
 ### 1. Assembler MVP
 
-Build the smallest useful assembler around `lc3-asm` and `lc3-image`.
-
-Acceptance criteria:
-
 ```text
+status:      done
 input:       one source file with one .ORIG/.END section
-pseudos:     .ORIG .END .FILL
-instructions: ADD AND NOT TRAP
-labels:      definitions and forward references for .FILL
-literals:    decimal #n and hex xNNNN
-output:      MemoryImage with origin and encoded words
-tests:       unit tests for parsing, symbol resolution, and encoding
+pseudos:     .ORIG .END .FILL .BLKW .STRINGZ
+instructions: ADD AND NOT BR JMP JSR JSRR LD LDI LDR LEA ST STI STR TRAP RTI
+trap aliases: GETC OUT PUTS IN PUTSP HALT
+labels:      definitions, standalone labels, forward references, duplicate checks
+literals:    decimal #n or bare n, hex xNNNN, PennSim-compatible .STRINGZ strings
+output:      MemoryImage with origin, encoded words, and symbols
+tests:       parser, encoder, diagnostics, and instruction-family tests
 ```
 
-This milestone does not need a polished parser or every PennSim edge case. It
-does need errors that can be reported with source line numbers.
+The assembler intentionally targets PennSim's course-visible dialect rather
+than adding convenience extensions first. PennSim does not appear to support
+standalone character literals such as `.FILL 'A'`; use numeric ASCII values or
+`.STRINGZ` instead.
 
 ### 2. Golden Compatibility Tests
 
-Add representative assembler fixtures and compare the emitted words against
-PennSim-generated output.
-
-Acceptance criteria:
-
 ```text
-fixtures:    small programs under sw/tests/fixtures/asm
-reference:   expected words from PennSim or existing trusted hex files
-coverage:    at least one ALU program, one label/forward-reference program,
-             and one trap/halt program
+status:      done
+fixtures:    inline fixtures in sw/crates/lc3-cli/tests/golden.rs
+reference:   live PennSim assembly output, compared as raw .obj bytes
+coverage:    ALU/branch, PC-relative memory, base-offset memory, control flow,
+             pseudo-ops, string escapes, trap aliases, RTI
+real programs: add_smoke, str_smoke, framebuffer_cpu_smoke, led_smoke,
+               andme, invaders
 command:     make sw-test runs the golden tests
 ```
 
@@ -136,15 +135,13 @@ not depend on PennSim at runtime.
 
 ### 3. CLI Assembler
 
-Expose the assembler through `lc3-cli`.
-
-Acceptance criteria:
-
 ```text
-command:     lc3 asm input.asm --hex output.hex
-format:      writes $readmemh-compatible hex
+status:      done
+command:     lc3-cli asm input.asm [--obj output.obj] [--sym output.sym]
+defaults:    output paths default to the input stem with .obj and .sym extensions
+format:      writes PennSim-style .obj and .sym files
 errors:      prints clear diagnostics and exits nonzero
-tests:       CLI smoke test assembles a tiny program into expected hex
+tests:       CLI integration tests cover output defaults, overrides, and errors
 ```
 
 The first CLI should stay thin. Parsing, encoding, diagnostics, and image
@@ -157,13 +154,16 @@ Make `lc3-image` the shared home for memory image conversion.
 Acceptance criteria:
 
 ```text
+status:      next
 hex:         read and write the repo's $readmemh-compatible format
-obj:         read PennSim .obj when useful for cross-checks
-metadata:    preserve origin, words, and optional symbols/debug records
+obj:         read and write PennSim .obj
+sym:         keep PennSim-compatible .sym formatting available
+metadata:    preserve origin, words, and symbols/debug records
 tests:       round-trip tests for hex and object fixtures
 ```
 
-Writing PennSim `.obj` can wait until a real workflow needs it.
+The CLI can already write `.obj` and `.sym`; the remaining cleanup is to move
+that file-format knowledge out of `lc3-cli` and into reusable image-format APIs.
 
 ### 5. Diagnostics for Editor Integration
 

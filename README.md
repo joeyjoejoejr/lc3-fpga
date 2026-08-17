@@ -11,6 +11,31 @@ The project now includes:
 - RGB LCD timing and LC-3 framebuffer scanout
 - build support for selecting FPGA program images
 
+## Development Software
+
+The full project spans RTL simulation, FPGA builds, and Rust-based software
+tools. For day-to-day development, install:
+
+- `make`, plus a POSIX shell environment
+- Rust stable with `cargo`, preferably managed by `rustup`
+- Python 3, used by repository scripts and FPGA tool virtual environments
+- Java, used to run the bundled `tools/PennSim.jar` compatibility reference
+- Icarus Verilog, providing `iverilog` and `vvp` for RTL tests
+- Yosys, used for Gowin FPGA synthesis
+- YoWASP Gowin place-and-route tools, expected by default under
+  `$HOME/.local/share/lc3-fpga/fpga-venv`
+- `openFPGALoader`, used to program and flash the Tang Nano 20K
+
+Optional but expected for future simulator work:
+
+- Verilator, used for a fast RTL-backed CLI simulator and stricter RTL linting
+
+The software workspace can be checked independently with:
+
+```sh
+make sw-test
+```
+
 Run the full simulation suite with:
 
 ```sh

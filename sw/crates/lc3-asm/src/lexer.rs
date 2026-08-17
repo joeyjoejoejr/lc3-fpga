@@ -30,6 +30,7 @@ pub enum Token {
     Register(u8),
 
     #[regex(r"#[+-]?[0-9]+", parse_decimal)]
+    #[regex(r"[+-]?[0-9]+", parse_decimal)]
     #[regex(r"[xX][0-9A-Fa-f]+", parse_hex)]
     Number(i32),
 
@@ -72,7 +73,7 @@ fn parse_register(lexer: &mut logos::Lexer<'_, Token>) -> Option<u8> {
 }
 
 fn parse_decimal(lexer: &mut logos::Lexer<'_, Token>) -> Option<i32> {
-    lexer.slice()[1..].parse().ok()
+    lexer.slice().trim_start_matches('#').parse().ok()
 }
 
 fn parse_hex(lexer: &mut logos::Lexer<'_, Token>) -> Option<i32> {

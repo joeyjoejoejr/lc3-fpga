@@ -91,6 +91,15 @@ RTI
     },
 ];
 
+const REAL_PROGRAMS: &[&str] = &[
+    "programs/add/add_smoke.asm",
+    "programs/str/str_smoke.asm",
+    "programs/top/framebuffer_cpu_smoke.asm",
+    "programs/top/led_smoke.asm",
+];
+
+const COURSE_DEMO_PROGRAMS: &[&str] = &["programs/top/andme.asm", "programs/top/invaders.asm"];
+
 fn run_lc3_cli(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_lc3-cli"))
         .args(args)
@@ -147,56 +156,88 @@ fn assemble_with_pennsim(source_path: &Path) -> Output {
         .expect("PennSim should run")
 }
 
+fn compare_source_to_pennsim(name: &str, source: &str) {
+    let dir = temp_dir(name);
+    let source_path = dir.join(format!("{name}.asm"));
+    let pennsim_obj_path = source_path.with_extension("obj");
+    let our_obj_path = dir.join(format!("{name}-ours.obj"));
+    let our_sym_path = dir.join(format!("{name}-ours.sym"));
+
+    fs::write(&source_path, source).expect("source should be written");
+
+    let pennsim_output = assemble_with_pennsim(&source_path);
+    assert!(
+        pennsim_output.status.success(),
+        "PennSim failed for {name}\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&pennsim_output.stdout),
+        String::from_utf8_lossy(&pennsim_output.stderr)
+    );
+    assert!(
+        pennsim_obj_path.exists(),
+        "PennSim did not create an object for {name}\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&pennsim_output.stdout),
+        String::from_utf8_lossy(&pennsim_output.stderr)
+    );
+
+    let cli_output = run_lc3_cli(&[
+        "asm",
+        source_path.to_str().expect("source path should be UTF-8"),
+        "--obj",
+        our_obj_path.to_str().expect("object path should be UTF-8"),
+        "--sym",
+        our_sym_path.to_str().expect("symbol path should be UTF-8"),
+    ]);
+    assert!(
+        cli_output.status.success(),
+        "lc3-cli failed for {name}\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&cli_output.stdout),
+        String::from_utf8_lossy(&cli_output.stderr)
+    );
+
+    assert_eq!(
+        fs::read(&our_obj_path).expect("our object should be readable"),
+        fs::read(&pennsim_obj_path).expect("PennSim object should be readable"),
+        "object output differed for {name}"
+    );
+
+    let _ = fs::remove_dir_all(dir);
+}
+
 #[test]
 fn cli_object_output_matches_pennsim() {
     for fixture in FIXTURES {
-        let dir = temp_dir(fixture.name);
-        let source_path = dir.join(format!("{}.asm", fixture.name));
-        let pennsim_obj_path = source_path.with_extension("obj");
-        let our_obj_path = dir.join(format!("{}-ours.obj", fixture.name));
-        let our_sym_path = dir.join(format!("{}-ours.sym", fixture.name));
+        compare_source_to_pennsim(fixture.name, fixture.source);
+    }
+}
 
-        fs::write(&source_path, fixture.source).expect("fixture source should be written");
+#[test]
+fn real_program_object_output_matches_pennsim() {
+    let project_root = repo_root();
 
-        let pennsim_output = assemble_with_pennsim(&source_path);
-        assert!(
-            pennsim_output.status.success(),
-            "PennSim failed for {}\nstdout:\n{}\nstderr:\n{}",
-            fixture.name,
-            String::from_utf8_lossy(&pennsim_output.stdout),
-            String::from_utf8_lossy(&pennsim_output.stderr)
-        );
-        assert!(
-            pennsim_obj_path.exists(),
-            "PennSim did not create an object for {}\nstdout:\n{}\nstderr:\n{}",
-            fixture.name,
-            String::from_utf8_lossy(&pennsim_output.stdout),
-            String::from_utf8_lossy(&pennsim_output.stderr)
-        );
+    for program in REAL_PROGRAMS {
+        let source = fs::read_to_string(project_root.join(program))
+            .expect("real program source should be readable");
+        let name = Path::new(program)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .expect("program path should have a UTF-8 stem");
 
-        let cli_output = run_lc3_cli(&[
-            "asm",
-            source_path.to_str().expect("source path should be UTF-8"),
-            "--obj",
-            our_obj_path.to_str().expect("object path should be UTF-8"),
-            "--sym",
-            our_sym_path.to_str().expect("symbol path should be UTF-8"),
-        ]);
-        assert!(
-            cli_output.status.success(),
-            "lc3-cli failed for {}\nstdout:\n{}\nstderr:\n{}",
-            fixture.name,
-            String::from_utf8_lossy(&cli_output.stdout),
-            String::from_utf8_lossy(&cli_output.stderr)
-        );
+        compare_source_to_pennsim(name, &source);
+    }
+}
 
-        assert_eq!(
-            fs::read(&our_obj_path).expect("our object should be readable"),
-            fs::read(&pennsim_obj_path).expect("PennSim object should be readable"),
-            "object output differed for {}",
-            fixture.name
-        );
+#[test]
+fn course_demo_program_object_output_matches_pennsim() {
+    let project_root = repo_root();
 
-        let _ = fs::remove_dir_all(dir);
+    for program in COURSE_DEMO_PROGRAMS {
+        let source = fs::read_to_string(project_root.join(program))
+            .expect("course demo source should be readable");
+        let name = Path::new(program)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .expect("program path should have a UTF-8 stem");
+
+        compare_source_to_pennsim(name, &source);
     }
 }
