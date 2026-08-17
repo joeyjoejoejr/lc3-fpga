@@ -21,12 +21,22 @@ fn temp_path(name: &str) -> PathBuf {
     std::env::temp_dir().join(format!("lc3-cli-{name}-{}-{nanos}", std::process::id()))
 }
 
+fn temp_dir(name: &str) -> PathBuf {
+    let path = temp_path(name);
+    fs::create_dir(&path).expect("temp directory should be created");
+    path
+}
+
 fn write_source(path: &Path, source: &str) {
     fs::write(path, source).expect("source should be written");
 }
 
 fn read_bytes(path: &Path) -> Vec<u8> {
     fs::read(path).expect("output should be readable")
+}
+
+fn read_to_string(path: &Path) -> String {
+    fs::read_to_string(path).expect("output should be readable")
 }
 
 #[test]
@@ -64,6 +74,110 @@ fn asm_writes_object_file() {
 
     let _ = fs::remove_file(source_path);
     let _ = fs::remove_file(obj_path);
+}
+
+#[test]
+fn asm_defaults_object_and_symbol_paths_to_input_stem() {
+    let dir = temp_dir("default-output");
+    let source_path = dir.join("program.asm");
+    let obj_path = dir.join("program.obj");
+    let sym_path = dir.join("program.sym");
+
+    write_source(
+        &source_path,
+        r"
+.ORIG x3000
+START ADD R1, R2, R3
+DATA .FILL START
+.END
+",
+    );
+
+    let output = run_lc3_cli(&[
+        "asm",
+        source_path.to_str().expect("source path should be UTF-8"),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "expected success\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        read_bytes(&obj_path),
+        vec![
+            0x30, 0x00, // origin
+            0x12, 0x83, // START ADD R1, R2, R3
+            0x30, 0x00, // DATA .FILL START
+        ]
+    );
+    assert_eq!(
+        read_to_string(&sym_path),
+        "// Symbol table\n\
+// Scope level 0:\n\
+//\tSymbol Name       Page Address\n\
+//\t----------------  ------------\n\
+//\tDATA              3001\n\
+//\tSTART             3000\n\
+//\t$               3000\n"
+    );
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn asm_allows_object_and_symbol_path_overrides() {
+    let dir = temp_dir("override-output");
+    let source_path = dir.join("program.asm");
+    let obj_path = dir.join("custom-output.obj");
+    let sym_path = dir.join("custom-symbols.sym");
+
+    write_source(
+        &source_path,
+        r"
+.ORIG x3000
+START ADD R1, R2, R3
+DATA .FILL START
+.END
+",
+    );
+
+    let output = run_lc3_cli(&[
+        "asm",
+        source_path.to_str().expect("source path should be UTF-8"),
+        "--obj",
+        obj_path.to_str().expect("object path should be UTF-8"),
+        "--sym",
+        sym_path.to_str().expect("symbol path should be UTF-8"),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "expected success\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        read_bytes(&obj_path),
+        vec![
+            0x30, 0x00, // origin
+            0x12, 0x83, // START ADD R1, R2, R3
+            0x30, 0x00, // DATA .FILL START
+        ]
+    );
+    assert_eq!(
+        read_to_string(&sym_path),
+        "// Symbol table\n\
+// Scope level 0:\n\
+//\tSymbol Name       Page Address\n\
+//\t----------------  ------------\n\
+//\tDATA              3001\n\
+//\tSTART             3000\n\
+//\t$               3000\n"
+    );
+
+    let _ = fs::remove_dir_all(dir);
 }
 
 #[test]

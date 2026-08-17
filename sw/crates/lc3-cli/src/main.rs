@@ -19,7 +19,9 @@ enum Command {
     Asm {
         input: PathBuf,
         #[arg(long)]
-        obj: PathBuf,
+        obj: Option<PathBuf>,
+        #[arg(long)]
+        sym: Option<PathBuf>,
     },
 }
 
@@ -32,7 +34,10 @@ fn main() {
 
 fn run() -> Result<(), String> {
     let cli = Cli::parse();
-    let Command::Asm { input, obj } = cli.command;
+    let Command::Asm { input, obj, sym } = cli.command;
+    let obj = obj.unwrap_or_else(|| input.with_extension("obj"));
+    let sym = sym.unwrap_or_else(|| input.with_extension("sym"));
+
     let mut input_file = File::open(input).map_err(|_| "invalid input file")?;
     let mut input_contents = String::new();
     input_file
@@ -61,6 +66,6 @@ fn run() -> Result<(), String> {
                 .collect::<Vec<_>>(),
         )
         .map_err(|_| "unable to write assembly")?;
-
+    std::fs::write(sym, assembly.image.symbol_string()).map_err(|_| "unable to write symbols")?;
     Ok(())
 }

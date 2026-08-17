@@ -773,7 +773,11 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
     }
 
     if encoder.diagnostics.is_empty() {
-        Ok(MemoryImage::new(encoder.origin, encoder.words))
+        Ok(MemoryImage::new(
+            encoder.origin,
+            encoder.words,
+            encoder.symbols,
+        ))
     } else {
         Err(encoder.diagnostics)
     }
