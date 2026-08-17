@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use lc3_image::MemoryImage;
 
 use crate::{encoder::encode, lexer::LexError, parser::parse_source};
@@ -36,6 +38,16 @@ impl Diagnostic {
             location,
             message: message.into(),
         }
+    }
+}
+
+impl Display for Diagnostic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "line {}:{}: {}",
+            self.location.line, self.location.column, self.message
+        )
     }
 }
 
