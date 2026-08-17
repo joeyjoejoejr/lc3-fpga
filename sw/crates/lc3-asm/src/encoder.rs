@@ -719,6 +719,24 @@ impl Encoder {
         self.words.extend(string.bytes().map(u16::from));
         self.words.push(0);
     }
+
+    fn encode_reserved(&mut self, trap_code: u16, name: &str, statement: &ParsedStatement) {
+        let ParsedStatement::Operation {
+            operands,
+            operation,
+            ..
+        } = statement
+        else {
+            return;
+        };
+
+        let [] = operands.as_slice() else {
+            self.add_diagnostic(operation.location, format!("{name} expects no operands"));
+            return;
+        };
+
+        self.words.push(TRAP_OPCODE | trap_code);
+    }
 }
 
 pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
@@ -764,6 +782,12 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
                 Operation::Rti => encoder.encode_rti(statement),
                 Operation::Blkw => encoder.encode_blkw(statement),
                 Operation::Stringz => encoder.encode_stringz(statement),
+                Operation::Getc => encoder.encode_reserved(0x20, "GETC", statement),
+                Operation::Out => encoder.encode_reserved(0x21, "OUT", statement),
+                Operation::Puts => encoder.encode_reserved(0x22, "PUTS", statement),
+                Operation::In => encoder.encode_reserved(0x23, "IN", statement),
+                Operation::Putsp => encoder.encode_reserved(0x24, "PUTSP", statement),
+                Operation::Halt => encoder.encode_reserved(0x25, "HALT", statement),
             },
         }
     }

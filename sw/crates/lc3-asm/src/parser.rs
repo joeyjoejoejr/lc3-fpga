@@ -29,6 +29,12 @@ pub enum Operation {
     Fill,
     Blkw,
     Stringz,
+    Getc,
+    Out,
+    Puts,
+    In,
+    Putsp,
+    Halt,
 }
 
 impl Operation {
@@ -64,6 +70,12 @@ impl Operation {
             ".FILL" => Some(Self::Fill),
             ".BLKW" => Some(Self::Blkw),
             ".STRINGZ" => Some(Self::Stringz),
+            "GETC" => Some(Self::Getc),
+            "OUT" => Some(Self::Out),
+            "PUTS" => Some(Self::Puts),
+            "IN" => Some(Self::In),
+            "PUTSP" => Some(Self::Putsp),
+            "HALT" => Some(Self::Halt),
             _ => None,
         }
     }
@@ -131,7 +143,13 @@ impl Operation {
             | Self::Rtt
             | Self::Jsr
             | Self::Jsrr
-            | Self::Rti => 1,
+            | Self::Rti
+            | Self::Getc
+            | Self::Out
+            | Self::Puts
+            | Self::In
+            | Self::Putsp
+            | Self::Halt => 1,
             Self::Blkw | Self::Stringz | Self::Orig | Self::End => 0,
         }
     }
