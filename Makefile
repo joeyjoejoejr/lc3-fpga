@@ -1,6 +1,7 @@
 IVERILOG ?= iverilog
 VVP ?= vvp
 CARGO ?= cargo
+VERILATOR ?= verilator
 RUN_VVP := scripts/run_vvp.sh
 YOSYS ?= yosys
 OPENFPGALOADER ?= openFPGALoader
@@ -68,6 +69,13 @@ LCD_COLOR_RTL := rtl/lcd_color_top.sv rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv rt
 LCD_TEXT_CONSOLE_RTL := rtl/lcd_text_console_top.sv rtl/gowin_rpll_9mhz.v rtl/lcd_timing.sv $(TEXT_CONSOLE_RTL) $(TEXT_RENDERER_RTL)
 FRAMEBUFFER_READER_RTL := $(wildcard rtl/lc3_framebuffer_reader.sv)
 BUILD := sim/build
+VERILATOR_BUILD := sw/target/verilator
+VERILATOR_TOP ?= lc3_verilator_top
+VERILATOR_RTL := sw/verilator/lc3_verilator_top.sv rtl/lc3_core.sv rtl/lc3_memory.sv
+VERILATOR_CPP := sw/verilator/lc3_sim.cpp
+VERILATOR_SMOKE := sw/verilator/smoke.sh
+VERILATOR_FLAGS ?= -Wall -Wno-fatal --timing -Irtl
+VERILATOR_CXXFLAGS ?= -std=c++17 -Wno-unknown-warning-option
 SW_MANIFEST := sw/Cargo.toml
 ADD_ASM := $(wildcard programs/add/*.asm)
 ADD_HEX := $(ADD_ASM:.asm=.hex)
@@ -98,12 +106,29 @@ TRAP_HEX := $(TRAP_ASM:.asm=.hex)
 TOP_ASM := $(wildcard programs/top/*.asm)
 TOP_HEX := $(TOP_ASM:.asm=.hex)
 
-.PHONY: test sw-test test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-jmpt test-rtt test-rti test-interrupt test-privilege-user test-privilege-polarity test-mpr-protection test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-keyboard-interrupt test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
+.PHONY: test sw-test verilator-tools verilator-lint verilator-build verilator-smoke test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jump test-jmp test-ret test-jsr test-jsrr test-jmpt test-rtt test-rti test-interrupt test-privilege-user test-privilege-polarity test-mpr-protection test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-keyboard-interrupt test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx assemble fpga-tools fpga-bitstream fpga-program fpga-flash invaders-bitstream invaders-program invaders-flash andme-bitstream andme-program andme-flash tx-bitstream tx-program tx-flash echo-bitstream echo-program echo-flash rx-probe-bitstream rx-probe-program rx-probe-flash lcd-color-bitstream lcd-color-program lcd-color-flash lcd-text-console-bitstream lcd-text-console-program lcd-text-console-flash wave clean
 
 test: test-fetch test-reset-pc test-add test-and test-not test-br test-lea test-ld test-st test-ldr test-str test-jmp test-ret test-jsr test-jsrr test-jmpt test-rtt test-rti test-interrupt test-privilege-user test-privilege-polarity test-mpr-protection test-ldi test-sti test-trap test-trap-vector test-memory-controller test-mpr test-timer test-keyboard test-keyboard-interrupt test-framebuffer-reader test-text-console test-text-renderer test-display-bridge test-top test-andme-os test-uart-tx test-uart-rx
 
 sw-test:
 	$(CARGO) test --manifest-path $(SW_MANIFEST)
+
+verilator-tools:
+	@command -v $(VERILATOR) >/dev/null || { echo "missing verilator; run: brew install verilator"; exit 1; }
+
+verilator-lint: $(VERILATOR_RTL) | verilator-tools
+	$(VERILATOR) --lint-only $(VERILATOR_FLAGS) --top-module $(VERILATOR_TOP) $(VERILATOR_RTL)
+
+verilator-build: $(VERILATOR_RTL) $(VERILATOR_CPP) | verilator-tools
+	@mkdir -p $(VERILATOR_BUILD)
+	$(VERILATOR) --cc --exe --build $(VERILATOR_FLAGS) \
+		-CFLAGS "$(VERILATOR_CXXFLAGS)" \
+		--Mdir $(VERILATOR_BUILD) \
+		--top-module $(VERILATOR_TOP) \
+		$(VERILATOR_RTL) $(VERILATOR_CPP)
+
+verilator-smoke: verilator-build $(VERILATOR_SMOKE)
+	@bash $(VERILATOR_SMOKE) "$(VERILATOR_BUILD)/V$(VERILATOR_TOP)"
 
 test-fetch: $(BUILD)/lc3_core_tb.vvp
 	@$(RUN_VVP) $<
@@ -546,4 +571,4 @@ wave: test
 	@echo "Waveform written to sim/lc3_core_tb.vcd"
 
 clean:
-	rm -rf $(BUILD) $(FPGA_BUILD) $(INVADERS_FPGA_BUILD) $(ANDME_FPGA_BUILD) $(TX_FPGA_BUILD) $(ECHO_FPGA_BUILD) $(RX_PROBE_FPGA_BUILD) $(LCD_COLOR_BUILD) $(LCD_TEXT_CONSOLE_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex programs/privilege/*.obj programs/privilege/*.sym programs/privilege/*.hex programs/os/*.obj programs/os/*.sym programs/os/*.hex
+	rm -rf $(BUILD) $(VERILATOR_BUILD) $(FPGA_BUILD) $(INVADERS_FPGA_BUILD) $(ANDME_FPGA_BUILD) $(TX_FPGA_BUILD) $(ECHO_FPGA_BUILD) $(RX_PROBE_FPGA_BUILD) $(LCD_COLOR_BUILD) $(LCD_TEXT_CONSOLE_BUILD) sim/*.vcd programs/add/*.obj programs/add/*.sym programs/add/*.hex programs/and/*.obj programs/and/*.sym programs/and/*.hex programs/not/*.obj programs/not/*.sym programs/not/*.hex programs/br/*.obj programs/br/*.sym programs/br/*.hex programs/lea/*.obj programs/lea/*.sym programs/lea/*.hex programs/ld/*.obj programs/ld/*.sym programs/ld/*.hex programs/st/*.obj programs/st/*.sym programs/st/*.hex programs/ldr/*.obj programs/ldr/*.sym programs/ldr/*.hex programs/str/*.obj programs/str/*.sym programs/str/*.hex programs/jump/*.obj programs/jump/*.sym programs/jump/*.hex programs/ldi/*.obj programs/ldi/*.sym programs/ldi/*.hex programs/trap/*.obj programs/trap/*.sym programs/trap/*.hex programs/top/*.obj programs/top/*.sym programs/top/*.hex programs/privilege/*.obj programs/privilege/*.sym programs/privilege/*.hex programs/os/*.obj programs/os/*.sym programs/os/*.hex

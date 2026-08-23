@@ -48,3 +48,4 @@ sw/target/
 *.swo
 .vscode/
 .idea/
+.clangd
