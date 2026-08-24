@@ -18,6 +18,8 @@ module lc3_core
   input logic [15:0] mpr,
   output logic [15:0] psr,
 
+  output logic halted,
+
   // Interrupts
   input logic irq_pending,
   input logic [2:0] irq_priority,
@@ -70,7 +72,6 @@ module lc3_core
 
   state_t state, return_state;
   logic [15:0] regs [0:7];
-  logic halted;
   integer i;
 
 

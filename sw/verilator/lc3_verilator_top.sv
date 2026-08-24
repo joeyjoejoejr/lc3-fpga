@@ -13,6 +13,8 @@ module lc3_verilator_top #(
   output logic [15:0] mem_addr,
   output logic        mem_we,
 
+  output logic        halted,
+
   // Loader
   input logic        loader_we,
   input logic [15:0] loader_addr, 
@@ -46,7 +48,8 @@ module lc3_verilator_top #(
     .irq_pending(1'b0),
     .irq_priority(3'b000),
     .irq_vector(8'h00),
-    .pennsim_privilege_mode(1'b1)
+    .pennsim_privilege_mode(1'b1),
+    .halted(halted)
   );
 
   lc3_memory #(

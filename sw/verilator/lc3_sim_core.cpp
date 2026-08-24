@@ -83,8 +83,9 @@ void Simulator::load_dense_image(const std::uint8_t* bytes, std::size_t len) {
 RunReport Simulator::run_cycles(std::uint64_t max_cycles) {
   std::uint64_t cycle = 0;
 
-  for (; cycle < max_cycles && !impl_->context.gotFinish(); ++cycle) {
+  while (!impl_->top.halted && (max_cycles == 0 || cycle < max_cycles) && !impl_->context.gotFinish()) {
     impl_->tick();
+    cycle++;
   }
 
   return RunReport{

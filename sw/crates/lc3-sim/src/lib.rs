@@ -58,7 +58,7 @@ pub struct Simulator {
 impl Simulator {
     #[must_use]
     pub fn new(reset_pc: u16, max_cycles: Option<u64>) -> Result<Self, SimulatorError> {
-        let max_cycles = max_cycles.unwrap_or(0);
+        let max_cycles = max_cycles.unwrap_or(10_000);
         let raw = unsafe { ffi::lc3_sim_new(reset_pc, max_cycles) };
         let raw = NonNull::new(raw).ok_or(SimulatorError::CreateFailed)?;
         Ok(Self { raw })

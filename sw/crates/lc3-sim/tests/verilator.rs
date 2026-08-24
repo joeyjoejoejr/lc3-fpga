@@ -19,3 +19,21 @@ fn loads_dense_image_and_runs_until_halt() {
     assert_eq!(report.pc, 0x3003);
     assert_eq!(report.ir, 0xD000);
 }
+
+#[test]
+#[ignore = "requires Verilator-backed simulator implementation"]
+fn runs_until_halt_without_cycle_limit() {
+    let trap_vector = MemoryImage::new(0x0025, vec![0x3002], HashMap::new());
+    let program = MemoryImage::new(0x3000, vec![0x1021, 0xF025, 0xD000], HashMap::new());
+    let dense = DenseMemoryImage::from_memory_images(&[trap_vector, program])
+        .expect("smoke image should compose");
+
+    let mut sim = Simulator::new(0x3000, None).expect("should create simulator");
+    sim.load_dense_image(&dense)
+        .expect("dense image should load into simulator");
+    let report = sim.run().expect("simulator should run until halt");
+
+    assert_eq!(report.pc, 0x3003);
+    assert_eq!(report.ir, 0xD000);
+    assert!(report.cycles > 0);
+}
