@@ -10,4 +10,6 @@ workspace = true
 
 [dependencies]
 lc3-asm = { path = "../lc3-asm" }
+lc3-sim = { path = "../lc3-sim" }
+lc3-image = { path = "../lc3-image" }
 clap = { version = "4", features = ["derive"] }

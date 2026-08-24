@@ -3,6 +3,7 @@ members = [
     "crates/lc3-asm",
     "crates/lc3-cli",
     "crates/lc3-image",
+    "crates/lc3-sim",
 ]
 resolver = "3"
 

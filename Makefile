@@ -72,7 +72,7 @@ BUILD := sim/build
 VERILATOR_BUILD := sw/target/verilator
 VERILATOR_TOP ?= lc3_verilator_top
 VERILATOR_RTL := sw/verilator/lc3_verilator_top.sv rtl/lc3_core.sv rtl/lc3_memory.sv
-VERILATOR_CPP := sw/verilator/lc3_sim.cpp
+VERILATOR_CPP := sw/verilator/lc3_sim.cpp sw/verilator/lc3_sim_core.cpp
 VERILATOR_SMOKE := sw/verilator/smoke.sh
 VERILATOR_FLAGS ?= -Wall -Wno-fatal --timing -Irtl
 VERILATOR_CXXFLAGS ?= -std=c++17 -Wno-unknown-warning-option

@@ -1,6 +1,4 @@
-#include "Vlc3_verilator_top.h"
-
-#include "verilated.h"
+#include "lc3_sim_core.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -22,16 +20,6 @@ struct Args {
   std::uint16_t reset_pc = 0x3000;
   int cycles = 10;
 };
-
-void tick(VerilatedContext& context, Vlc3_verilator_top& top) {
-    top.clk = 0;
-    top.eval();
-    context.timeInc(5);
-
-    top.clk = 1;
-    top.eval();
-    context.timeInc(5);
-}
 
 std::vector<std::uint8_t> read_binary_file(const std::string& path) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -120,9 +108,6 @@ Args parse_args(int argc, char** argv) {
 
 int main(int argc, char** argv) {
   try {
-    VerilatedContext context;
-    context.commandArgs(argc, argv);
-
     const Args args = parse_args(argc, argv);
     const std::vector<std::uint8_t> memory = read_binary_file(args.memory_path);
 
@@ -130,38 +115,16 @@ int main(int argc, char** argv) {
       throw std::runtime_error("memory image must be exactly 131072 bytes");
     }
 
-    Vlc3_verilator_top top{&context};
-    std::vector<std::uint8_t> bytes = read_binary_file(args.memory_path);
-    top.clk = 0;
-    top.reset = 1;
-    top.loader_we = 0;
-    top.reset_pc = args.reset_pc;
-
-    tick(context, top);
-
-    for(std::size_t addr = 0; addr <= 0xFFFF; addr++) {
-      const std::size_t i = addr * 2;
-      const std::uint16_t word = (static_cast<std::uint16_t>(bytes[i]) << 8) 
-        | static_cast<std::uint16_t>(bytes[i+1]);
-
-      top.loader_addr = addr;
-      top.loader_wdata = word;
-      top.loader_we = 1;
-      tick(context, top);
-    }
+    lc3::sim::Simulator sim{args.reset_pc};
+    sim.command_args(argc, argv);
+    sim.load_dense_image(memory.data(), memory.size());
     std::cout << "loaded memory words=" << 0xFFFF + 1 << std::endl;
 
-    top.loader_we = 0;
-    top.reset = 0;
+    const lc3::sim::RunReport report = sim.run_cycles(args.cycles);
 
-    for (int cycle = 0; cycle < args.cycles && !context.gotFinish(); ++cycle) {
-      tick(context, top);
-    }
+    std::cout << "pc=0x" << std::hex << report.pc << " ir=0x" << report.ir
+      << " psr=0x" << report.psr << '\n';
 
-    std::cout << "pc=0x" << std::hex << top.pc << " ir=0x" << top.ir
-      << " psr=0x" << top.psr << '\n';
-
-    top.final();
     return 0;
   } catch (const std::exception& error) {
     std::cerr << "error: " << error.what() << '\n';

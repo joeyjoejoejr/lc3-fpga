@@ -123,6 +123,28 @@ impl MemoryImage {
     }
 }
 
+impl TryFrom<Vec<u8>> for MemoryImage {
+    type Error = String;
+
+    fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
+        let [addr_hi, addr_lo, rest @ ..] = bytes.as_slice() else {
+            return Err("invalid object file, expected 16 bit origin".to_owned());
+        };
+        let origin = u16::from_be_bytes([*addr_hi, *addr_lo]);
+        let words = rest.chunks_exact(2);
+
+        if !words.remainder().is_empty() {
+            return Err("invalid object file, expected 16 bit words".to_owned());
+        }
+
+        let words = words
+            .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+            .collect();
+
+        Ok(MemoryImage::new(origin, words, HashMap::new()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
