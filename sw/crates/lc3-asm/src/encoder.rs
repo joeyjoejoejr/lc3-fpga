@@ -4,7 +4,7 @@ use lc3_image::MemoryImage;
 
 use crate::{
     Diagnostic, SourceLocation,
-    listing::ProgramListing,
+    listing::{ListingRow, ProgramListing},
     parser::{Operand, Operation, ParsedStatement, Spanned},
 };
 
@@ -33,11 +33,12 @@ pub(crate) struct EncodedProgram {
 
 #[derive(Clone, Eq, PartialEq, Default)]
 struct Encoder {
-    origin: u16,
+    origin: Option<u16>,
     words: Vec<u16>,
     diagnostics: Vec<Diagnostic>,
     saw_end: bool,
     symbols: HashMap<String, u32>,
+    listing: ProgramListing,
 }
 
 impl Encoder {
@@ -47,7 +48,7 @@ impl Encoder {
             return None;
         };
 
-        let offset = i64::from(*addr) - i64::from(self.current_addr()) - 1;
+        let offset = i64::from(*addr) - i64::from(self.current_addr()?) - 1;
 
         if !(-256..=255).contains(&offset) {
             self.add_diagnostic(location, "offset9 out of range");
@@ -63,7 +64,7 @@ impl Encoder {
             return None;
         };
 
-        let offset = i64::from(*addr) - i64::from(self.current_addr()) - 1;
+        let offset = i64::from(*addr) - i64::from(self.current_addr()?) - 1;
 
         if !(-1024..=1023).contains(&offset) {
             self.add_diagnostic(location, "offset11 out of range");
@@ -82,12 +83,19 @@ impl Encoder {
         Some(u16::try_from(offset & 0x003F).expect("offset6 fits in u16"))
     }
 
-    fn current_addr(&self) -> u16 {
-        self.origin + u16::try_from(self.words.len()).expect("words fits in 16 bits")
+    fn current_addr(&self) -> Option<u16> {
+        let origin = u32::from(self.origin?);
+        let word_count = u32::try_from(self.words.len()).ok()?;
+
+        u16::try_from(origin + word_count).ok()
     }
 
     fn build_symbol_table(&mut self, statements: &[ParsedStatement]) {
-        let mut address = u32::from(self.origin);
+        let Some(origin) = self.origin else {
+            return;
+        };
+
+        let mut address = u32::from(origin);
 
         for statement in statements {
             let new_words = match statement {
@@ -224,10 +232,17 @@ impl Encoder {
             return 0;
         }
 
+        self.listing.rows.push(ListingRow {
+            line: first_statement.line(),
+            address: None,
+            word_count: 0,
+        });
+
         if let [operand] = operands.as_slice() {
-            self.origin = self
-                .read_address_operand(operand, ".ORIG expects a 16-bit, numeric address")
-                .unwrap_or(0);
+            self.origin =
+                self.read_address_operand(operand, ".ORIG expects a 16-bit, numeric address");
+            self.listing.rows[0].address = self.origin;
+
             1
         } else {
             self.add_diagnostic(operation.location, ".ORIG expects a single address operand");
@@ -753,11 +768,19 @@ pub fn encode(statements: &[ParsedStatement]) -> EncodedProgram {
     encoder.build_symbol_table(statements);
 
     for statement in statements.iter().skip(skip) {
+        let prev_words = encoder.words.len();
+        let address = encoder.current_addr();
+
         if encoder.saw_end {
             encoder.diagnostics.push(Diagnostic::new(
                 statement.location(),
                 "statement after .END",
             ));
+            encoder.listing.rows.push(ListingRow {
+                line: statement.line(),
+                address,
+                word_count: 0,
+            });
             continue;
         }
 
@@ -798,6 +821,12 @@ pub fn encode(statements: &[ParsedStatement]) -> EncodedProgram {
                 Operation::Halt => encoder.encode_reserved(0x25, "HALT", statement),
             },
         }
+
+        encoder.listing.rows.push(ListingRow {
+            line: statement.line(),
+            address,
+            word_count: encoder.words.len() - prev_words,
+        });
     }
 
     if !encoder.saw_end {
@@ -805,13 +834,13 @@ pub fn encode(statements: &[ParsedStatement]) -> EncodedProgram {
     }
 
     let image = encoder
-        .diagnostics
-        .is_empty()
-        .then(|| MemoryImage::new(encoder.origin, encoder.words, encoder.symbols));
+        .origin
+        .filter(|_| encoder.diagnostics.is_empty())
+        .map(|origin| MemoryImage::new(origin, encoder.words, encoder.symbols));
 
     EncodedProgram {
         image,
         diagnostics: encoder.diagnostics,
-        listing: ProgramListing::default(),
+        listing: encoder.listing,
     }
 }

@@ -203,7 +203,14 @@ fn reports_statement_after_end() {
 .FILL #42
 ";
 
-    let diagnostics = assemble(source)
+    let assembly = assemble(source);
+
+    assert_eq!(assembly.listing.rows.len(), 3);
+    assert_eq!(assembly.listing.rows[2].line, 4);
+    assert_eq!(assembly.listing.rows[2].address, Some(0x3000));
+    assert_eq!(assembly.listing.rows[2].word_count, 0);
+
+    let diagnostics = assembly
         .into_image()
         .expect_err("source should not assemble");
 
