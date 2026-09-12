@@ -42,6 +42,12 @@ impl DenseMemoryImage {
     pub fn from_memory_images(images: &[MemoryImage]) -> Result<Self, String> {
         let mut dense_image = Self::new();
 
+        dense_image.load_memory_images(images)?;
+
+        Ok(dense_image)
+    }
+
+    pub fn load_memory_images(&mut self, images: &[MemoryImage]) -> Result<(), String> {
         for image in images {
             if usize::from(image.origin) + image.words().len() > 65_536 {
                 return Err("memory image exceeds lc3 address space".to_owned());
@@ -50,19 +56,19 @@ impl DenseMemoryImage {
             for (i, word) in image.words.iter().enumerate() {
                 let addr = usize::from(image.origin) + i;
                 let offset = addr * 2;
-                if dense_image.occupied[addr] {
+                if self.occupied[addr] {
                     return Err("memory images overlap".to_owned());
                 }
 
                 let [hi, lo] = word.to_be_bytes();
 
-                dense_image.bytes[offset] = hi;
-                dense_image.bytes[offset + 1] = lo;
-                dense_image.occupied[addr] = true;
+                self.bytes[offset] = hi;
+                self.bytes[offset + 1] = lo;
+                self.occupied[addr] = true;
             }
         }
 
-        Ok(dense_image)
+        Ok(())
     }
 }
 
@@ -237,6 +243,23 @@ mod tests {
         assert_be_word(bytes, 0x3000, 0x1021);
         assert_be_word(bytes, 0x3001, 0xF025);
         assert_be_word(bytes, 0x3002, 0xD000);
+    }
+
+    #[test]
+    fn loads_additional_images_into_dense_memory_image() {
+        let first = MemoryImage::new(0x0200, vec![0x1021], HashMap::new());
+        let second = MemoryImage::new(0x3000, vec![0xF025], HashMap::new());
+        let mut dense = DenseMemoryImage::new();
+
+        dense
+            .load_memory_images(&[first])
+            .expect("first image should load");
+        dense
+            .load_memory_images(&[second])
+            .expect("second image should load");
+
+        assert_be_word(dense.be_bytes(), 0x0200, 0x1021);
+        assert_be_word(dense.be_bytes(), 0x3000, 0xF025);
     }
 
     #[test]
