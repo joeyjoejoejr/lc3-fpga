@@ -47,6 +47,7 @@ impl DenseMemoryImage {
         Ok(dense_image)
     }
 
+    #[must_use]
     pub fn load_memory_images(&mut self, images: &[MemoryImage]) -> Result<(), String> {
         for image in images {
             if usize::from(image.origin) + image.words().len() > 65_536 {

@@ -1,0 +1,19 @@
+[package]
+name = "lc3-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+
+[dependencies]
+eframe = "0.33"
+lc3-asm = { path = "../../crates/lc3-asm" }
+lc3-image = { path = "../../crates/lc3-image" }
+rfd = "0.15"
+
+[dev-dependencies]
+tempfile = "3"
