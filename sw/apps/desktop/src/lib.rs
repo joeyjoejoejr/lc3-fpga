@@ -4,6 +4,14 @@ use lc3_asm::{Assembly, assemble};
 use lc3_image::DenseMemoryImage;
 
 #[derive(Debug)]
+pub struct SourceRow<'a> {
+    pub line: usize,
+    pub address: Option<u16>,
+    pub source: &'a str,
+    pub words: &'a [u16],
+}
+
+#[derive(Debug)]
 pub struct LoadedAssembly {
     pub path: PathBuf,
     pub assembly: Assembly,
@@ -58,4 +66,19 @@ pub fn open_program_paths(
         program.load_image_from_asm(path.clone(), &source)?;
     }
     Ok(())
+}
+
+pub fn source_rows(assembly: &Assembly) -> Vec<SourceRow<'_>> {
+    let mut rows = vec![];
+
+    for listing_row in &assembly.listing.rows {
+        rows.push(SourceRow {
+            line: listing_row.line,
+            address: listing_row.address,
+            source: assembly.source_line(listing_row.line).unwrap_or(""),
+            words: assembly.words_for(listing_row).unwrap_or(&[]),
+        });
+    }
+
+    rows
 }

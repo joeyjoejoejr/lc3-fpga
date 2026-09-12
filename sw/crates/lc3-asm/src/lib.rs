@@ -2,7 +2,12 @@ use std::fmt::Display;
 
 use lc3_image::MemoryImage;
 
-use crate::{encoder::encode, lexer::LexError, listing::ProgramListing, parser::parse_source};
+use crate::{
+    encoder::encode,
+    lexer::LexError,
+    listing::{ListingRow, ProgramListing},
+    parser::parse_source,
+};
 
 mod encoder;
 pub mod lexer;
@@ -72,6 +77,16 @@ impl Assembly {
 
     pub fn source_line(&self, line: usize) -> Option<&str> {
         self.source.get(line.checked_sub(1)?).map(String::as_str)
+    }
+
+    pub fn words_for(&self, row: &ListingRow) -> Option<&[u16]> {
+        let image = self.image.as_ref()?;
+        let address = row.address?;
+        let offset = address.checked_sub(image.origin())?;
+        let start = usize::from(offset);
+        let end = start.checked_add(row.word_count)?;
+
+        image.words().get(start..end)
     }
 }
 
