@@ -125,3 +125,21 @@ ADD R0, R0, #16
     assert_eq!(rows[1].address, Some(0x3000));
     assert_eq!(rows[1].word_count, 0);
 }
+
+#[test]
+fn resolves_listing_line_to_original_source() {
+    let source = r"
+.ORIG x3000
+ADD R1, R2, R3
+HALT
+.END
+";
+
+    let assembly = assemble(source);
+    let instruction = &assembly.listing.rows[1];
+
+    assert_eq!(
+        assembly.source_line(instruction.line),
+        Some("ADD R1, R2, R3")
+    );
+}

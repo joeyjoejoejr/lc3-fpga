@@ -57,6 +57,7 @@ pub struct Assembly {
     pub diagnostics: Vec<Diagnostic>,
     pub image: Option<MemoryImage>,
     pub listing: ProgramListing,
+    source: Vec<String>,
 }
 
 impl Assembly {
@@ -67,6 +68,10 @@ impl Assembly {
     /// Returns the collected diagnostics when assembly did not produce an image.
     pub fn into_image(self) -> Result<MemoryImage, Vec<Diagnostic>> {
         self.image.ok_or(self.diagnostics)
+    }
+
+    pub fn source_line(&self, line: usize) -> Option<&str> {
+        self.source.get(line.checked_sub(1)?).map(String::as_str)
     }
 }
 
@@ -80,12 +85,14 @@ pub fn assemble(source: &str) -> Assembly {
                 image: encoded.image,
                 diagnostics: encoded.diagnostics,
                 listing: encoded.listing,
+                source: source.lines().map(str::to_string).collect(),
             }
         }
         Err(diagnostic) => Assembly {
             image: None,
             diagnostics: vec![diagnostic],
             listing: ProgramListing::default(),
+            source: source.lines().map(str::to_string).collect(),
         },
     }
 }
