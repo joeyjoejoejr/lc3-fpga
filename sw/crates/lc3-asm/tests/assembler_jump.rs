@@ -1,9 +1,11 @@
 use lc3_asm::assemble;
 
 fn assembled_words(source: &str) -> (u16, Vec<u16>) {
-    let assembly = assemble(source).expect("source should assemble");
+    let assembly = assemble(source)
+        .into_image()
+        .expect("source should assemble");
 
-    (assembly.image.origin(), assembly.image.words().to_vec())
+    (assembly.origin(), assembly.words().to_vec())
 }
 
 #[test]

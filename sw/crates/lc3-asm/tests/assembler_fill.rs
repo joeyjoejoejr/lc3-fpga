@@ -8,10 +8,12 @@ fn assembles_single_fill_literal() {
 .END
 ";
 
-    let assembly = assemble(source).expect("source should assemble");
+    let assembly = assemble(source)
+        .into_image()
+        .expect("source should assemble");
 
-    assert_eq!(assembly.image.origin(), 0x3000);
-    assert_eq!(assembly.image.words(), &[0x002A]);
+    assert_eq!(assembly.origin(), 0x3000);
+    assert_eq!(assembly.words(), &[0x002A]);
 }
 
 #[test]
@@ -24,11 +26,13 @@ NEXT .FILL START
 .END
 ";
 
-    let assembly = assemble(source).expect("source should assemble");
+    let assembly = assemble(source)
+        .into_image()
+        .expect("source should assemble");
 
-    assert_eq!(assembly.image.origin(), 0x3000);
+    assert_eq!(assembly.origin(), 0x3000);
     assert_eq!(
-        assembly.image.words(),
+        assembly.words(),
         &[
             0x0000, // START .BLKW #3
             0x0000, 0x0000, 0x3000, // .FILL START
@@ -47,11 +51,13 @@ NEXT .FILL MESSAGE
 .END
 "#;
 
-    let assembly = assemble(source).expect("source should assemble");
+    let assembly = assemble(source)
+        .into_image()
+        .expect("source should assemble");
 
-    assert_eq!(assembly.image.origin(), 0x3000);
+    assert_eq!(assembly.origin(), 0x3000);
     assert_eq!(
-        assembly.image.words(),
+        assembly.words(),
         &[
             0x0048, // 'H'
             0x0049, // 'I'
@@ -71,11 +77,13 @@ NEXT .FILL NEXT
 .END
 "#;
 
-    let assembly = assemble(source).expect("source should assemble");
+    let assembly = assemble(source)
+        .into_image()
+        .expect("source should assemble");
 
-    assert_eq!(assembly.image.origin(), 0x3000);
+    assert_eq!(assembly.origin(), 0x3000);
     assert_eq!(
-        assembly.image.words(),
+        assembly.words(),
         &[
             0x0000, // zero terminator
             0x3001, // .FILL NEXT
@@ -91,11 +99,13 @@ fn assembles_stringz_with_pennsim_escapes() {
 .END
 "#;
 
-    let assembly = assemble(source).expect("source should assemble");
+    let assembly = assemble(source)
+        .into_image()
+        .expect("source should assemble");
 
-    assert_eq!(assembly.image.origin(), 0x3000);
+    assert_eq!(assembly.origin(), 0x3000);
     assert_eq!(
-        assembly.image.words(),
+        assembly.words(),
         &[
             0x0041, // 'A'
             0x000A, // '\n'
@@ -119,11 +129,13 @@ fn keeps_unknown_stringz_escapes_literal_like_pennsim() {
 .END
 "#;
 
-    let assembly = assemble(source).expect("source should assemble");
+    let assembly = assemble(source)
+        .into_image()
+        .expect("source should assemble");
 
-    assert_eq!(assembly.image.origin(), 0x3000);
+    assert_eq!(assembly.origin(), 0x3000);
     assert_eq!(
-        assembly.image.words(),
+        assembly.words(),
         &[
             0x0041, // 'A'
             0x005C, // '\'
@@ -156,7 +168,9 @@ fn reports_blkw_that_exceeds_address_space() {
 .END
 ";
 
-    let diagnostics = assemble(source).expect_err("source should not assemble");
+    let diagnostics = assemble(source)
+        .into_image()
+        .expect_err("source should not assemble");
 
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].message, "address out of bounds");
@@ -172,7 +186,9 @@ fn reports_instruction_after_blkw_that_exceeds_address_space() {
 .END
 ";
 
-    let diagnostics = assemble(source).expect_err("source should not assemble");
+    let diagnostics = assemble(source)
+        .into_image()
+        .expect_err("source should not assemble");
 
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].message, "address out of bounds");
@@ -187,7 +203,9 @@ fn reports_statement_after_end() {
 .FILL #42
 ";
 
-    let diagnostics = assemble(source).expect_err("source should not assemble");
+    let diagnostics = assemble(source)
+        .into_image()
+        .expect_err("source should not assemble");
 
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].message, "statement after .END");

@@ -4,6 +4,7 @@ use lc3_image::MemoryImage;
 
 use crate::{
     Diagnostic, SourceLocation,
+    listing::ProgramListing,
     parser::{Operand, Operation, ParsedStatement, Spanned},
 };
 
@@ -22,6 +23,13 @@ const STR_OPCODE: u16 = 0x7000;
 const JMP_OPCODE: u16 = 0xC000;
 const JSR_OPCODE: u16 = 0x4000;
 const RTI_OPCODE: u16 = 0x8000;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct EncodedProgram {
+    pub image: Option<MemoryImage>,
+    pub listing: ProgramListing,
+    pub diagnostics: Vec<Diagnostic>,
+}
 
 #[derive(Clone, Eq, PartialEq, Default)]
 struct Encoder {
@@ -739,7 +747,7 @@ impl Encoder {
     }
 }
 
-pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnostic>> {
+pub fn encode(statements: &[ParsedStatement]) -> EncodedProgram {
     let mut encoder = Encoder::default();
     let skip = encoder.read_origin(statements);
     encoder.build_symbol_table(statements);
@@ -796,13 +804,14 @@ pub fn encode(statements: &[ParsedStatement]) -> Result<MemoryImage, Vec<Diagnos
         encoder.add_diagnostic(SourceLocation::default(), "expected .END");
     }
 
-    if encoder.diagnostics.is_empty() {
-        Ok(MemoryImage::new(
-            encoder.origin,
-            encoder.words,
-            encoder.symbols,
-        ))
-    } else {
-        Err(encoder.diagnostics)
+    let image = encoder
+        .diagnostics
+        .is_empty()
+        .then(|| MemoryImage::new(encoder.origin, encoder.words, encoder.symbols));
+
+    EncodedProgram {
+        image,
+        diagnostics: encoder.diagnostics,
+        listing: ProgramListing::default(),
     }
 }

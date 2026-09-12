@@ -1,9 +1,11 @@
 use lc3_asm::assemble;
 
 fn assembled_words(source: &str) -> (u16, Vec<u16>) {
-    let assembly = assemble(source).expect("source should assemble");
+    let assembly = assemble(source)
+        .into_image()
+        .expect("source should assemble");
 
-    (assembly.image.origin(), assembly.image.words().to_vec())
+    (assembly.origin(), assembly.words().to_vec())
 }
 
 #[test]
@@ -79,7 +81,9 @@ ITEM .FILL #2
 .END
 ";
 
-    let diagnostics = assemble(source).expect_err("source should not assemble");
+    let diagnostics = assemble(source)
+        .into_image()
+        .expect_err("source should not assemble");
 
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].message, "duplicate label");
@@ -95,7 +99,9 @@ ITEM .FILL #2
 .END
 ";
 
-    let diagnostics = assemble(source).expect_err("source should not assemble");
+    let diagnostics = assemble(source)
+        .into_image()
+        .expect_err("source should not assemble");
 
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].message, "duplicate label");

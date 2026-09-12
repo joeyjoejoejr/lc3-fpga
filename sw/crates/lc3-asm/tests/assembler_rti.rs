@@ -8,8 +8,10 @@ RTI
 .END
 ";
 
-    let assembly = assemble(source).expect("source should assemble");
+    let assembly = assemble(source)
+        .into_image()
+        .expect("source should assemble");
 
-    assert_eq!(assembly.image.origin(), 0x0200);
-    assert_eq!(assembly.image.words(), &[0x8000]);
+    assert_eq!(assembly.origin(), 0x0200);
+    assert_eq!(assembly.words(), &[0x8000]);
 }

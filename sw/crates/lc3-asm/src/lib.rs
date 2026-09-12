@@ -2,10 +2,11 @@ use std::fmt::Display;
 
 use lc3_image::MemoryImage;
 
-use crate::{encoder::encode, lexer::LexError, parser::parse_source};
+use crate::{encoder::encode, lexer::LexError, listing::ProgramListing, parser::parse_source};
 
 mod encoder;
 pub mod lexer;
+pub mod listing;
 pub mod parser;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -53,18 +54,38 @@ impl Display for Diagnostic {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Assembly {
-    pub image: MemoryImage,
+    pub diagnostics: Vec<Diagnostic>,
+    pub image: Option<MemoryImage>,
+    pub listing: ProgramListing,
 }
 
-/// Assemble PennSim-style LC-3 source into an origin-addressed memory image.
-///
-/// # Errors
-///
-/// Returns diagnostics when the source cannot be parsed or encoded.
-pub fn assemble(source: &str) -> Result<Assembly, Vec<Diagnostic>> {
-    let statements = parse_source(source).map_err(|err| vec![err])?;
+impl Assembly {
+    /// Return the loadable image, or the diagnostics that prevented one.
+    ///
+    /// # Errors
+    ///
+    /// Returns the collected diagnostics when assembly did not produce an image.
+    pub fn into_image(self) -> Result<MemoryImage, Vec<Diagnostic>> {
+        self.image.ok_or(self.diagnostics)
+    }
+}
 
-    let image = encode(&statements)?;
-
-    Ok(Assembly { image })
+/// Assemble PennSim-style LC-3 source into an assembly report.
+#[must_use]
+pub fn assemble(source: &str) -> Assembly {
+    match parse_source(source) {
+        Ok(statements) => {
+            let encoded = encode(&statements);
+            Assembly {
+                image: encoded.image,
+                diagnostics: encoded.diagnostics,
+                listing: encoded.listing,
+            }
+        }
+        Err(diagnostic) => Assembly {
+            image: None,
+            diagnostics: vec![diagnostic],
+            listing: ProgramListing::default(),
+        },
+    }
 }

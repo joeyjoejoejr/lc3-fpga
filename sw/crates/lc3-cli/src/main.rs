@@ -72,29 +72,30 @@ fn run_asm(command: Command) -> Result<(), String> {
         .read_to_string(&mut input_contents)
         .map_err(|_| "failed to read file")?;
 
-    let assembly = assemble(&input_contents).map_err(|diagnostics| {
-        diagnostics
-            .iter()
-            .map(Diagnostic::to_string)
-            .collect::<Vec<_>>()
-            .join("\n")
-    })?;
+    let image = assemble(&input_contents)
+        .into_image()
+        .map_err(|diagnostics| {
+            diagnostics
+                .iter()
+                .map(Diagnostic::to_string)
+                .collect::<Vec<_>>()
+                .join("\n")
+        })?;
 
     let mut obj_file = File::create(obj).map_err(|_| "invalid output file")?;
     obj_file
-        .write_all(&assembly.image.origin().to_be_bytes())
+        .write_all(&image.origin().to_be_bytes())
         .map_err(|_| "unable to write origin")?;
     obj_file
         .write_all(
-            &assembly
-                .image
+            &image
                 .words()
                 .iter()
                 .flat_map(|word| word.to_be_bytes())
                 .collect::<Vec<_>>(),
         )
         .map_err(|_| "unable to write assembly")?;
-    std::fs::write(sym, assembly.image.symbol_string()).map_err(|_| "unable to write symbols")?;
+    std::fs::write(sym, image.symbol_string()).map_err(|_| "unable to write symbols")?;
     Ok(())
 }
 

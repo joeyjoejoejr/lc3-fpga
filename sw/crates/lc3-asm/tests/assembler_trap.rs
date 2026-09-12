@@ -8,10 +8,12 @@ TRAP x25
 .END
 ";
 
-    let assembly = assemble(source).expect("source should assemble");
+    let assembly = assemble(source)
+        .into_image()
+        .expect("source should assemble");
 
-    assert_eq!(assembly.image.origin(), 0x3000);
-    assert_eq!(assembly.image.words(), &[0xF025]);
+    assert_eq!(assembly.origin(), 0x3000);
+    assert_eq!(assembly.words(), &[0xF025]);
 }
 
 #[test]
@@ -27,11 +29,13 @@ HALT
 .END
 ";
 
-    let assembly = assemble(source).expect("source should assemble");
+    let assembly = assemble(source)
+        .into_image()
+        .expect("source should assemble");
 
-    assert_eq!(assembly.image.origin(), 0x3000);
+    assert_eq!(assembly.origin(), 0x3000);
     assert_eq!(
-        assembly.image.words(),
+        assembly.words(),
         &[0xF020, 0xF021, 0xF022, 0xF023, 0xF024, 0xF025]
     );
 }
@@ -44,7 +48,9 @@ HALT x25
 .END
 ";
 
-    let diagnostics = assemble(source).expect_err("source should not assemble");
+    let diagnostics = assemble(source)
+        .into_image()
+        .expect_err("source should not assemble");
 
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].message, "HALT expects no operands");
