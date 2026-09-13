@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fmt::Display, fs, path::PathBuf};
 
 use lc3_asm::{Assembly, assemble};
 use lc3_image::DenseMemoryImage;
@@ -49,6 +49,17 @@ pub enum LoadProgramError {
     Io(String),
     Image(String),
 }
+
+impl Display for LoadProgramError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnsupportedFileType => f.write_str("unsupported file type"),
+            Self::Io(message) | Self::Image(message) => f.write_str(message),
+        }
+    }
+}
+
+impl std::error::Error for LoadProgramError {}
 
 /// Open LC-3 program files and merge them into existing UI-ready state.
 ///

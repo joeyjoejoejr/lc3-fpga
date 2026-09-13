@@ -829,10 +829,6 @@ pub fn encode(statements: &[ParsedStatement]) -> EncodedProgram {
         });
     }
 
-    if !encoder.saw_end {
-        encoder.add_diagnostic(SourceLocation::default(), "expected .END");
-    }
-
     let image = encoder
         .origin
         .filter(|_| encoder.diagnostics.is_empty())

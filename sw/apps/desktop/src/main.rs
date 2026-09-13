@@ -1,27 +1,5 @@
 use eframe::egui;
-use std::path::PathBuf;
-
-const SOURCE_ROWS: &[SourceRow] = &[
-    SourceRow::directive(1, "x2FFC", ".ORIG x2FFC", "--"),
-    SourceRow::instruction(2, "x2FFC", "BR START", "0E00"),
-    SourceRow::instruction(3, "x2FFD", "LEA R2, LOOP", "E102"),
-    SourceRow::instruction(4, "x2FFE", "LD R1, ZERO", "2202"),
-    SourceRow::instruction(5, "x2FFF", "LD R0, PTR", "2201"),
-    SourceRow::instruction(6, "x3000", "START ADD R0, R0, #1", "1021"),
-    SourceRow::instruction(7, "x3001", "AND R1, R1, #0", "5260"),
-    SourceRow::instruction(8, "x3002", "LOOP ADD R1, R1, #1", "1261"),
-    SourceRow::instruction(9, "x3003", "ADD R0, R0, #1", "1021"),
-    SourceRow::instruction(10, "x3004", "LDR R1, R0, #0", "6860"),
-    SourceRow::instruction(11, "x3005", "BRz DONE", "0401"),
-    SourceRow::instruction(12, "x3006", "BR LOOP", "0BFD"),
-    SourceRow::current(13, "x3007", "ADD R1, R1, #1", "1261"),
-    SourceRow::instruction(14, "x3008", "STR R1, R0, #0", "7860"),
-    SourceRow::instruction(15, "x3009", "BR LOOP", "0BF7"),
-    SourceRow::instruction(16, "x300A", "DONE HALT", "F025"),
-    SourceRow::directive(17, "x300B", "ZERO .FILL x0000", "0000"),
-    SourceRow::directive(18, "x300C", "PTR .FILL x300B", "300B"),
-    SourceRow::directive(19, "x300D", ".END", "--"),
-];
+use lc3_desktop::{LoadedProgram, SourceRow, open_program_paths, source_rows};
 
 const HISTORY_ITEMS: &[HistoryItem] = &[
     HistoryItem::new("Step 15", "x3007", "ADD R1, R1, #1", "R1 <- x0003"),
@@ -57,7 +35,8 @@ const SYMBOLS: &[(&str, &str)] = &[
 struct Lc3DesktopApp {
     speed: ExecutionSpeed,
     bottom_panel: BottomPanel,
-    selected_program: Option<PathBuf>,
+    loaded_program: LoadedProgram,
+    load_error: Option<String>,
 }
 
 impl Default for Lc3DesktopApp {
@@ -65,7 +44,8 @@ impl Default for Lc3DesktopApp {
         Self {
             speed: ExecutionSpeed::StepsPerSecond10,
             bottom_panel: BottomPanel::Console,
-            selected_program: None,
+            loaded_program: LoadedProgram::default(),
+            load_error: None,
         }
     }
 }
@@ -101,7 +81,7 @@ impl eframe::App for Lc3DesktopApp {
             .width_range(190.0..=300.0)
             .show(ctx, Self::show_machine_state);
 
-        egui::CentralPanel::default().show(ctx, Self::show_source);
+        egui::CentralPanel::default().show(ctx, |ui| self.show_source(ui));
     }
 }
 
@@ -111,12 +91,13 @@ impl Lc3DesktopApp {
         ui.horizontal(|ui| {
             if ui.button("Open").clicked()
                 && let Some(path) = rfd::FileDialog::new()
-                    .add_filter("LC-3 programs", &["asm", "obj"])
                     .add_filter("Assembly", &["asm"])
-                    .add_filter("Object files", &["obj"])
                     .pick_file()
             {
-                self.selected_program = Some(path);
+                self.load_error =
+                    open_program_paths(&mut self.loaded_program, std::slice::from_ref(&path))
+                        .err()
+                        .map(|error| error.to_string());
             }
 
             let _ = ui.button("Reset");
@@ -137,9 +118,17 @@ impl Lc3DesktopApp {
             });
         });
 
-        if let Some(path) = &self.selected_program {
+        if let Some(loaded) = self.loaded_program.assemblies.last() {
             ui.add_space(2.0);
-            ui.label(format!("Program: {}", path.display()));
+            ui.label(format!("Program: {}", loaded.path.display()));
+        }
+
+        if let Some(error) = &self.load_error {
+            ui.add_space(2.0);
+            ui.colored_label(
+                ui.visuals().error_fg_color,
+                format!("Failed to open program: {error}"),
+            );
         }
 
         ui.add_space(4.0);
@@ -173,25 +162,49 @@ impl Lc3DesktopApp {
         });
     }
 
-    fn show_source(ui: &mut egui::Ui) {
+    fn show_source(&self, ui: &mut egui::Ui) {
+        const LINE_WIDTH: f32 = 44.0;
+        const ADDRESS_WIDTH: f32 = 76.0;
+        const MACHINE_WIDTH: f32 = 150.0;
+        const COLUMN_SPACING: f32 = 8.0;
+
         ui.heading("Source Code");
         ui.separator();
+
+        let Some(loaded) = self.loaded_program.assemblies.last() else {
+            ui.label("Open an assembly file to view its source.");
+            return;
+        };
+
+        for diagnostic in &loaded.assembly.diagnostics {
+            ui.colored_label(ui.visuals().error_fg_color, diagnostic.to_string());
+        }
+
+        let fixed_width = LINE_WIDTH + ADDRESS_WIDTH + MACHINE_WIDTH + COLUMN_SPACING * 3.0;
+        let source_width = (ui.available_width() - fixed_width).max(120.0);
 
         egui::ScrollArea::both()
             .auto_shrink([false; 2])
             .show(ui, |ui| {
                 egui::Grid::new("source_grid")
                     .striped(true)
-                    .spacing([18.0, 6.0])
+                    .spacing([COLUMN_SPACING, 6.0])
                     .show(ui, |ui| {
-                        ui.strong("Line");
-                        ui.strong("Address");
-                        ui.strong("Source");
-                        ui.strong("Machine");
+                        show_source_header(ui, "Line", LINE_WIDTH);
+                        show_source_header(ui, "Address", ADDRESS_WIDTH);
+                        show_source_header(ui, "Source", source_width);
+                        show_source_header(ui, "Machine", MACHINE_WIDTH);
                         ui.end_row();
 
-                        for row in SOURCE_ROWS {
-                            show_source_row(ui, row);
+                        for row in source_rows(&loaded.assembly) {
+                            show_source_row(
+                                ui,
+                                &row,
+                                LINE_WIDTH,
+                                ADDRESS_WIDTH,
+                                source_width,
+                                MACHINE_WIDTH,
+                            );
                         }
                     });
             });
@@ -300,62 +313,6 @@ impl HistoryItem {
 }
 
 #[derive(Clone, Copy)]
-struct SourceRow {
-    line: usize,
-    address: &'static str,
-    source: &'static str,
-    machine: &'static str,
-    current: bool,
-}
-
-impl SourceRow {
-    const fn current(
-        line: usize,
-        address: &'static str,
-        source: &'static str,
-        machine: &'static str,
-    ) -> Self {
-        Self {
-            line,
-            address,
-            source,
-            machine,
-            current: true,
-        }
-    }
-
-    const fn directive(
-        line: usize,
-        address: &'static str,
-        source: &'static str,
-        machine: &'static str,
-    ) -> Self {
-        Self {
-            line,
-            address,
-            source,
-            machine,
-            current: false,
-        }
-    }
-
-    const fn instruction(
-        line: usize,
-        address: &'static str,
-        source: &'static str,
-        machine: &'static str,
-    ) -> Self {
-        Self {
-            line,
-            address,
-            source,
-            machine,
-            current: false,
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
 struct RegisterRow {
     name: &'static str,
     value: &'static str,
@@ -430,28 +387,67 @@ fn show_history_item(ui: &mut egui::Ui, item: &HistoryItem) {
     ui.monospace(item.summary);
 }
 
-fn show_source_row(ui: &mut egui::Ui, row: &SourceRow) {
-    let line = if row.current {
-        format!("> {}", row.line)
-    } else {
-        row.line.to_string()
-    };
+fn show_source_header(ui: &mut egui::Ui, text: &str, width: f32) {
+    ui.add_sized(
+        [width, ui.spacing().interact_size.y],
+        egui::Label::new(egui::RichText::new(text).strong()).truncate(),
+    );
+}
 
-    ui.label(source_cell(line, row.current));
-    ui.label(source_cell(row.address, row.current));
-    ui.label(source_cell(row.source, row.current));
-    ui.label(source_cell(row.machine, row.current));
+fn show_source_row(
+    ui: &mut egui::Ui,
+    row: &SourceRow<'_>,
+    line_width: f32,
+    address_width: f32,
+    source_width: f32,
+    machine_width: f32,
+) {
+    let row_height = ui.spacing().interact_size.y;
+    let address = if let Some(address) = row.address {
+        format!("x{address:04X}")
+    } else {
+        "--".to_owned()
+    };
+    let machine = format_machine_words(row.words);
+
+    ui.add_sized(
+        [line_width, row_height],
+        egui::Label::new(row.line.to_string()),
+    );
+    ui.add_sized(
+        [address_width, row_height],
+        egui::Label::new(egui::RichText::new(address).monospace()).truncate(),
+    );
+    ui.add_sized(
+        [source_width, row_height],
+        egui::Label::new(egui::RichText::new(row.source).monospace()).truncate(),
+    );
+    ui.add_sized(
+        [machine_width, row_height],
+        egui::Label::new(egui::RichText::new(&machine).monospace()).truncate(),
+    );
     ui.end_row();
 }
 
-fn source_cell(value: impl Into<String>, current: bool) -> egui::RichText {
-    let text = egui::RichText::new(value);
-    if current {
-        text.strong()
-            .background_color(egui::Color32::from_gray(220))
-    } else {
-        text
+fn format_machine_words(words: &[u16]) -> String {
+    const PREVIEW_WORDS: usize = 4;
+
+    if words.is_empty() {
+        return "--".to_owned();
     }
+
+    let mut machine = words
+        .iter()
+        .take(PREVIEW_WORDS)
+        .map(|word| format!("{word:04X}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if words.len() > PREVIEW_WORDS {
+        machine.push_str(&format!(" … (+{})", words.len() - PREVIEW_WORDS));
+    }
+
+    machine
 }
 
 fn show_change_cell(ui: &mut egui::Ui, value: &str, previous: Option<&str>) {
