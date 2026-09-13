@@ -1,5 +1,6 @@
 use eframe::egui;
-use lc3_desktop::{LoadedProgram, SourceRow, open_program_paths, source_rows};
+use lc3_desktop::{LoadedProgram, SourceRow, open_program_path, source_rows};
+use std::path::PathBuf;
 
 const HISTORY_ITEMS: &[HistoryItem] = &[
     HistoryItem::new("Step 15", "x3007", "ADD R1, R1, #1", "R1 <- x0003"),
@@ -36,7 +37,8 @@ struct Lc3DesktopApp {
     speed: ExecutionSpeed,
     bottom_panel: BottomPanel,
     loaded_program: LoadedProgram,
-    load_error: Option<String>,
+    selected_assembly: Option<usize>,
+    load_errors: Vec<String>,
 }
 
 impl Default for Lc3DesktopApp {
@@ -45,7 +47,8 @@ impl Default for Lc3DesktopApp {
             speed: ExecutionSpeed::StepsPerSecond10,
             bottom_panel: BottomPanel::Console,
             loaded_program: LoadedProgram::default(),
-            load_error: None,
+            selected_assembly: None,
+            load_errors: Vec::new(),
         }
     }
 }
@@ -86,18 +89,28 @@ impl eframe::App for Lc3DesktopApp {
 }
 
 impl Lc3DesktopApp {
+    fn open_paths(&mut self, paths: &[PathBuf]) {
+        self.load_errors.clear();
+
+        for path in paths {
+            match open_program_path(&mut self.loaded_program, path) {
+                Ok(()) => self.selected_assembly = Some(self.loaded_program.assemblies.len() - 1),
+                Err(error) => self
+                    .load_errors
+                    .push(format!("{}: {error}", path.display())),
+            }
+        }
+    }
+
     fn show_toolbar(&mut self, ui: &mut egui::Ui) {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             if ui.button("Open").clicked()
-                && let Some(path) = rfd::FileDialog::new()
+                && let Some(paths) = rfd::FileDialog::new()
                     .add_filter("Assembly", &["asm"])
-                    .pick_file()
+                    .pick_files()
             {
-                self.load_error =
-                    open_program_paths(&mut self.loaded_program, std::slice::from_ref(&path))
-                        .err()
-                        .map(|error| error.to_string());
+                self.open_paths(&paths);
             }
 
             let _ = ui.button("Reset");
@@ -118,12 +131,15 @@ impl Lc3DesktopApp {
             });
         });
 
-        if let Some(loaded) = self.loaded_program.assemblies.last() {
+        if let Some(loaded) = self
+            .selected_assembly
+            .and_then(|index| self.loaded_program.assemblies.get(index))
+        {
             ui.add_space(2.0);
             ui.label(format!("Program: {}", loaded.path.display()));
         }
 
-        if let Some(error) = &self.load_error {
+        for error in &self.load_errors {
             ui.add_space(2.0);
             ui.colored_label(
                 ui.visuals().error_fg_color,
@@ -162,7 +178,7 @@ impl Lc3DesktopApp {
         });
     }
 
-    fn show_source(&self, ui: &mut egui::Ui) {
+    fn show_source(&mut self, ui: &mut egui::Ui) {
         const LINE_WIDTH: f32 = 44.0;
         const ADDRESS_WIDTH: f32 = 76.0;
         const MACHINE_WIDTH: f32 = 150.0;
@@ -171,8 +187,37 @@ impl Lc3DesktopApp {
         ui.heading("Source Code");
         ui.separator();
 
-        let Some(loaded) = self.loaded_program.assemblies.last() else {
+        if self.loaded_program.assemblies.is_empty() {
             ui.label("Open an assembly file to view its source.");
+            return;
+        }
+
+        egui::ScrollArea::horizontal()
+            .id_salt("source_tabs")
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    for (index, loaded) in self.loaded_program.assemblies.iter().enumerate() {
+                        let name = loaded
+                            .path
+                            .file_name()
+                            .unwrap_or(loaded.path.as_os_str())
+                            .to_string_lossy();
+                        if ui
+                            .selectable_label(self.selected_assembly == Some(index), name)
+                            .on_hover_text(loaded.path.display().to_string())
+                            .clicked()
+                        {
+                            self.selected_assembly = Some(index);
+                        }
+                    }
+                });
+            });
+        ui.separator();
+
+        let Some(loaded) = self
+            .selected_assembly
+            .and_then(|index| self.loaded_program.assemblies.get(index))
+        else {
             return;
         };
 
@@ -557,4 +602,57 @@ fn main() -> eframe::Result {
         options,
         Box::new(|creation_context| Ok(Box::new(Lc3DesktopApp::new(creation_context)))),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn opening_multiple_files_selects_the_last_assembly() {
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let first = temp_dir.path().join("first.asm");
+        let second = temp_dir.path().join("second.asm");
+        fs::write(&first, ".ORIG x3000\nHALT\n").expect("first assembly");
+        fs::write(&second, ".ORIG x3100\nHALT\n").expect("second assembly");
+
+        let mut app = Lc3DesktopApp::default();
+        app.open_paths(&[first.clone(), second.clone()]);
+
+        assert!(app.load_errors.is_empty());
+        assert_eq!(app.selected_assembly, Some(1));
+        assert_eq!(app.loaded_program.assemblies[0].path, first);
+        assert_eq!(app.loaded_program.assemblies[1].path, second);
+    }
+
+    #[test]
+    fn opening_files_continues_after_a_failed_file() {
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let missing = temp_dir.path().join("missing.asm");
+        let valid = temp_dir.path().join("valid.asm");
+        fs::write(&valid, ".ORIG x3000\nHALT\n").expect("valid assembly");
+
+        let mut app = Lc3DesktopApp::default();
+        app.open_paths(&[missing, valid.clone()]);
+
+        assert_eq!(app.load_errors.len(), 1);
+        assert_eq!(app.selected_assembly, Some(0));
+        assert_eq!(app.loaded_program.assemblies[0].path, valid);
+    }
+
+    #[test]
+    fn failed_open_preserves_the_selected_tab() {
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let valid = temp_dir.path().join("valid.asm");
+        fs::write(&valid, ".ORIG x3000\nHALT\n").expect("valid assembly");
+
+        let mut app = Lc3DesktopApp::default();
+        app.open_paths(&[valid]);
+        app.open_paths(&[temp_dir.path().join("missing.asm")]);
+
+        assert_eq!(app.selected_assembly, Some(0));
+        assert_eq!(app.loaded_program.assemblies.len(), 1);
+        assert_eq!(app.load_errors.len(), 1);
+    }
 }

@@ -1,6 +1,6 @@
 use std::fs;
 
-use lc3_desktop::{LoadedProgram, open_program_paths};
+use lc3_desktop::{LoadedProgram, open_program_path};
 
 fn assert_be_word(bytes: &[u8], address: usize, word: u16) {
     assert_eq!(
@@ -33,8 +33,7 @@ HALT
     .expect("asm fixture should be written");
 
     let mut program = LoadedProgram::new();
-    open_program_paths(&mut program, std::slice::from_ref(&asm_path))
-        .expect("asm program should open");
+    open_program_path(&mut program, &asm_path).expect("asm program should open");
 
     assert_eq!(program.assemblies.len(), 1);
 
@@ -99,8 +98,8 @@ HALT
     .expect("second asm fixture should be written");
 
     let mut program = LoadedProgram::new();
-    open_program_paths(&mut program, &[first_path.clone(), second_path.clone()])
-        .expect("asm programs should open");
+    open_program_path(&mut program, &first_path).expect("first asm program should open");
+    open_program_path(&mut program, &second_path).expect("second asm program should open");
 
     assert_eq!(program.assemblies.len(), 2);
     assert_eq!(program.assemblies[0].path, first_path);
@@ -143,7 +142,7 @@ ADD R0, R0, #16
     .expect("asm fixture should be written");
 
     let mut program = LoadedProgram::new();
-    open_program_paths(&mut program, std::slice::from_ref(&asm_path))
+    open_program_path(&mut program, &asm_path)
         .expect("invalid assembly should still open for diagnostics");
 
     assert_eq!(program.assemblies.len(), 1);

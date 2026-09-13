@@ -61,21 +61,19 @@ impl Display for LoadProgramError {
 
 impl std::error::Error for LoadProgramError {}
 
-/// Open LC-3 program files and merge them into existing UI-ready state.
+/// Open one LC-3 assembly file and merge its image into existing UI-ready state.
 ///
 /// # Errors
 ///
 /// Returns an error when the file type is unsupported, the file cannot be read,
 /// or the program cannot be assembled/loaded.
-pub fn open_program_paths(
+pub fn open_program_path(
     program: &mut LoadedProgram,
-    paths: &[PathBuf],
+    path: &PathBuf,
 ) -> Result<(), LoadProgramError> {
-    for path in paths {
-        let source = fs::read_to_string(path)
-            .map_err(|_| LoadProgramError::Io("failed to open file".to_owned()))?;
-        program.load_image_from_asm(path.clone(), &source)?;
-    }
+    let source = fs::read_to_string(path)
+        .map_err(|_| LoadProgramError::Io("failed to open file".to_owned()))?;
+    program.load_image_from_asm(path.clone(), &source)?;
     Ok(())
 }
 
