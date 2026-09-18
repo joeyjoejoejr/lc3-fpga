@@ -12,6 +12,17 @@ pub struct RunReport {
     pub cycles: u64,
 }
 
+/// One completed instruction, with a cumulative retirement count that still
+/// advances when a branch targets its own address.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct InstructionReport {
+    pub address: u16,
+    pub word: u16,
+    pub next_pc: u16,
+    pub cycles: u64,
+    pub retired_instructions: u64,
+}
+
 impl Display for RunReport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -103,6 +114,16 @@ impl Simulator {
             cycles: raw_report.cycles,
         })
     }
+
+    /// Advance exactly one completed instruction.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SimulatorError::NotImplemented`] until the Verilator wrapper
+    /// exposes an instruction-completion signal.
+    pub const fn step_instruction(&mut self) -> Result<InstructionReport, SimulatorError> {
+        Err(SimulatorError::NotImplemented)
+    }
 }
 
 #[cfg(feature = "verilator")]
@@ -147,6 +168,15 @@ impl Simulator {
     ///
     /// Returns an error until the Verilator backend feature is enabled.
     pub const fn run(&mut self) -> Result<RunReport, SimulatorError> {
+        Err(SimulatorError::NotImplemented)
+    }
+
+    /// Advance exactly one completed instruction.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SimulatorError::NotImplemented`] without the Verilator backend.
+    pub const fn step_instruction(&mut self) -> Result<InstructionReport, SimulatorError> {
         Err(SimulatorError::NotImplemented)
     }
 }
