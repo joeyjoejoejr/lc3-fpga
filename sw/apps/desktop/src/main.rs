@@ -1,5 +1,5 @@
 use eframe::egui;
-use lc3_desktop::{LoadedProgram, SourceRow, open_program_path, source_rows};
+use lc3_desktop::{ExecutionSpeed, LoadedProgram, SourceRow, open_program_path, source_rows};
 use std::path::PathBuf;
 
 const HISTORY_ITEMS: &[HistoryItem] = &[
@@ -44,7 +44,7 @@ struct Lc3DesktopApp {
 impl Default for Lc3DesktopApp {
     fn default() -> Self {
         Self {
-            speed: ExecutionSpeed::StepsPerSecond10,
+            speed: ExecutionSpeed::default(),
             bottom_panel: BottomPanel::Console,
             loaded_program: LoadedProgram::default(),
             selected_assembly: None,
@@ -400,32 +400,6 @@ impl BottomPanel {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum ExecutionSpeed {
-    SingleStep,
-    StepsPerSecond1,
-    StepsPerSecond10,
-    Unlimited,
-}
-
-impl ExecutionSpeed {
-    const ALL: [Self; 4] = [
-        Self::SingleStep,
-        Self::StepsPerSecond1,
-        Self::StepsPerSecond10,
-        Self::Unlimited,
-    ];
-
-    const fn label(self) -> &'static str {
-        match self {
-            Self::SingleStep => "Manual",
-            Self::StepsPerSecond1 => "1 step/sec",
-            Self::StepsPerSecond10 => "10 steps/sec",
-            Self::Unlimited => "Unlimited",
-        }
-    }
-}
-
 fn show_history_item(ui: &mut egui::Ui, item: &HistoryItem) {
     ui.label(egui::RichText::new(item.step).strong());
     ui.monospace(format!("{}  {}", item.address, item.instruction));
@@ -608,6 +582,11 @@ fn main() -> eframe::Result {
 mod tests {
     use super::*;
     use std::fs;
+
+    #[test]
+    fn desktop_defaults_to_pennsim_like_speed() {
+        assert_eq!(Lc3DesktopApp::default().speed, ExecutionSpeed::PennSimLike);
+    }
 
     #[test]
     fn opening_multiple_files_selects_the_last_assembly() {

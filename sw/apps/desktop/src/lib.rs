@@ -3,6 +3,53 @@ use std::{fmt::Display, fs, path::PathBuf};
 use lc3_asm::{Assembly, assemble};
 use lc3_image::DenseMemoryImage;
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ExecutionSpeed {
+    InstructionsPerSecond1,
+    InstructionsPerSecond10,
+    InstructionsPerSecond100,
+    InstructionsPerSecond1000,
+    #[default]
+    PennSimLike,
+    Fastest,
+}
+
+impl ExecutionSpeed {
+    pub const ALL: [Self; 6] = [
+        Self::InstructionsPerSecond1,
+        Self::InstructionsPerSecond10,
+        Self::InstructionsPerSecond100,
+        Self::InstructionsPerSecond1000,
+        Self::PennSimLike,
+        Self::Fastest,
+    ];
+
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::InstructionsPerSecond1 => "1 instr/sec",
+            Self::InstructionsPerSecond10 => "10 instr/sec",
+            Self::InstructionsPerSecond100 => "100 instr/sec",
+            Self::InstructionsPerSecond1000 => "1,000 instr/sec",
+            Self::PennSimLike => "PennSim-like",
+            Self::Fastest => "Fastest",
+        }
+    }
+
+    /// Target rate for desktop pacing; `None` means no rate limit.
+    #[must_use]
+    pub const fn target_instructions_per_second(self) -> Option<u32> {
+        match self {
+            Self::InstructionsPerSecond1 => Some(1),
+            Self::InstructionsPerSecond10 => Some(10),
+            Self::InstructionsPerSecond100 => Some(100),
+            Self::InstructionsPerSecond1000 => Some(1_000),
+            Self::PennSimLike => Some(1_000_000),
+            Self::Fastest => None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct SourceRow<'a> {
     pub line: usize,
